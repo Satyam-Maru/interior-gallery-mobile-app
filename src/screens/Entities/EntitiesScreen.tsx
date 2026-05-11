@@ -1,0 +1,589 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { theme } from '../../theme';
+import { Users, Plus, Search, MapPin, X, ChevronDown } from 'lucide-react-native';
+import { EntityService, LocationService } from '../../services/api';
+import Toast, { showToast } from '../../components/Toast';
+
+const EntitiesScreen = () => {
+  const [activeTab, setActiveTab] = useState<'supplier' | 'customer'>('supplier');
+  const [entities, setEntities] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  // Form State
+  const [newName, setNewName] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [newLocationName, setNewLocationName] = useState('');
+
+  // UI State
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locSearchQuery, setLocSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [entRes, locRes] = await Promise.all([
+        EntityService.getEntities(),
+        LocationService.getLocations(),
+      ]);
+      setEntities(entRes.data);
+      setLocations(locRes.data);
+    } catch (error) {
+      console.error('Fetch error:', error);
+      showToast({
+        type: 'error',
+        text1: 'Fetch Failed',
+        text2: 'Could not load party data',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEntities = entities.filter(e => e.type === activeTab);
+  
+  const filteredLocations = locations.filter(l => 
+    l.name.toLowerCase().includes(locSearchQuery.toLowerCase())
+  );
+
+  const handleAddEntity = async () => {
+    if (!newName.trim()) {
+      showToast({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: `Please enter ${activeTab} name`,
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      let locationId = selectedLocationId;
+      
+      // Handle "on the go" location creation
+      if (newLocationName.trim()) {
+        const locRes = await LocationService.createLocation({ name: newLocationName.trim() });
+        locationId = locRes.data.id;
+      }
+
+      await EntityService.createEntity({
+        name: newName.trim(),
+        type: activeTab,
+        location_id: locationId || undefined,
+      });
+
+      showToast({
+        type: 'success',
+        text1: 'Success',
+        text2: `${activeTab} added successfully`,
+      });
+      
+      setShowAddModal(false);
+      resetForm();
+      fetchData();
+    } catch (error) {
+      console.error('Create error:', error);
+      showToast({
+        type: 'error',
+        text1: 'Save Failed',
+        text2: `Could not add ${activeTab} to database`,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewName('');
+    setSelectedLocationId(null);
+    setNewLocationName('');
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Parties</Text>
+        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+          <Plus size={20} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'supplier' && styles.activeTab]}
+          onPress={() => setActiveTab('supplier')}
+        >
+          <Text style={[styles.tabText, activeTab === 'supplier' && styles.activeTabText]}>Suppliers</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'customer' && styles.activeTab]}
+          onPress={() => setActiveTab('customer')}
+        >
+          <Text style={[styles.tabText, activeTab === 'customer' && styles.activeTabText]}>Customers</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Search size={20} color={theme.colors.textSecondary} />
+        <TextInput 
+          placeholder={`Search ${activeTab}s...`} 
+          style={styles.searchInput}
+          placeholderTextColor={theme.colors.textSecondary}
+        />
+      </View>
+
+      <FlatList
+        data={filteredEntities}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        onRefresh={fetchData}
+        refreshing={loading}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.entityCard}>
+            <View style={styles.entityIcon}>
+              <Users size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.entityInfo}>
+              <Text style={styles.entityName}>{item.name}</Text>
+              <View style={styles.locationContainer}>
+                <MapPin size={12} color={theme.colors.textSecondary} />
+                <Text style={styles.locationText}>
+                  {locations.find(l => l.id === item.location_id)?.name || 'No location'}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
+
+      <Modal visible={showAddModal} animationType="slide">
+        <SafeAreaView style={styles.fullScreenModal}>
+          <View style={styles.modalHeader}>
+            <View>
+              <Text style={styles.modalTitle}>New {activeTab}</Text>
+              <Text style={styles.modalSubtitle}>Register a new {activeTab} in the system</Text>
+            </View>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowAddModal(false)}>
+              <X size={20} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
+            <ScrollView 
+              style={styles.fullScreenForm} 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+            >
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name *</Text>
+                <TextInput 
+                  style={styles.input}
+                  placeholder={`Enter ${activeTab} name`}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Location</Text>
+                <TouchableOpacity 
+                  style={styles.picker}
+                  onPress={() => {
+                    setLocSearchQuery('');
+                    setShowLocationModal(true);
+                  }}
+                >
+                  <Text style={[styles.pickerText, (selectedLocationId || newLocationName) && { color: theme.colors.text }]}>
+                    {newLocationName ? newLocationName : (selectedLocationId ? locations.find(l => l.id === selectedLocationId)?.name : 'Select Location')}
+                  </Text>
+                  <ChevronDown size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.footer}>
+                <TouchableOpacity 
+                  style={[styles.submitButton, submitting && { opacity: 0.7 }]} 
+                  onPress={handleAddEntity}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.submitText}>Save {activeTab}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={() => setShowAddModal(false)}
+                >
+                  <Text style={styles.cancelText}>Discard</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          <Toast />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Searchable Location Modal */}
+      <Modal visible={showLocationModal} animationType="fade" transparent>
+        <View style={styles.innerModalOverlay}>
+          <View style={styles.innerModalContent}>
+            <View style={styles.innerModalHeader}>
+              <Text style={styles.innerModalTitle}>Select Location</Text>
+              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+                <X size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearch}>
+              <Search size={18} color={theme.colors.textSecondary} />
+              <TextInput 
+                placeholder="Search or add new..." 
+                style={styles.modalSearchInput}
+                value={locSearchQuery}
+                onChangeText={setLocSearchQuery}
+                autoFocus
+              />
+            </View>
+
+            <FlatList
+              data={filteredLocations}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.selectItem}
+                  onPress={() => {
+                    setSelectedLocationId(item.id);
+                    setNewLocationName('');
+                    setShowLocationModal(false);
+                  }}
+                >
+                  <Text style={styles.selectItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={() => (
+                locSearchQuery.length > 0 ? (
+                  <TouchableOpacity 
+                    style={styles.addNewItem}
+                    onPress={() => {
+                      setNewLocationName(locSearchQuery);
+                      setSelectedLocationId(null);
+                      setShowLocationModal(false);
+                    }}
+                  >
+                    <Plus size={18} color={theme.colors.primary} />
+                    <Text style={styles.addNewItemText}>Add "{locSearchQuery}" as new location</Text>
+                  </TouchableOpacity>
+                ) : null
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.sm,
+  },
+  title: {
+    ...theme.typography.h1,
+  },
+  addButton: {
+    backgroundColor: theme.colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  tab: {
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: theme.colors.primary,
+  },
+  tabText: {
+    ...theme.typography.body,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  activeTabText: {
+    color: theme.colors.primary,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    marginLeft: theme.spacing.sm,
+    ...theme.typography.body,
+  },
+  listContent: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  entityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  entityIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  entityInfo: {
+    flex: 1,
+  },
+  entityName: {
+    ...theme.typography.body,
+    fontWeight: '600',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 4,
+  },
+  locationText: {
+    ...theme.typography.caption,
+  },
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  fullScreenForm: {
+    flex: 1,
+    padding: theme.spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    ...theme.typography.h2,
+    textTransform: 'capitalize',
+  },
+  modalSubtitle: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  footer: {
+    marginTop: theme.spacing.xl,
+    gap: theme.spacing.md,
+  },
+  cancelButton: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  cancelText: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  form: {
+    gap: 32,
+  },
+  inputGroup: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  label: {
+    ...theme.typography.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: theme.colors.surface,
+    padding: 16,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.typography.body,
+    fontSize: 16,
+  },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  pickerText: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+  },
+  submitButton: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  submitText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  innerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  innerModalContent: {
+    width: '100%',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  innerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  innerModalTitle: {
+    ...theme.typography.body,
+    fontWeight: '700',
+  },
+  selectItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  selectItemText: {
+    ...theme.typography.body,
+  },
+  addNewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  addNewItemText: {
+    ...theme.typography.body,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  modalSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  modalSearchInput: {
+    flex: 1,
+    height: 48,
+    marginLeft: theme.spacing.sm,
+    ...theme.typography.body,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+  },
+});
+
+export default EntitiesScreen;
