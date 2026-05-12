@@ -48,6 +48,11 @@ export const EntityService = {
     type: 'supplier' | 'customer';
     location_id?: number;
   }) => api.post('/entities', data),
+  updateEntity: (id: number, data: {
+    name?: string;
+    type?: 'supplier' | 'customer';
+    location_id?: number;
+  }) => api.put(`/entities/${id}`, data),
 };
 
 export const CategoryService = {
@@ -58,6 +63,10 @@ export const CategoryService = {
 export const LocationService = {
   getLocations: () => api.get('/locations'),
   createLocation: (data: { name: string }) => api.post('/locations', data),
+};
+
+export const DashboardService = {
+  getStats: () => api.get('/dashboard/stats'),
 };
 
 export default api;

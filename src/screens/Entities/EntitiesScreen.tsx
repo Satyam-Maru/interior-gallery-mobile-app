@@ -16,9 +16,11 @@ const EntitiesScreen = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   
   // Form State
+  const [editingEntity, setEditingEntity] = useState<any>(null);
   const [newName, setNewName] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [newLocationName, setNewLocationName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // UI State
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -55,13 +57,23 @@ const EntitiesScreen = () => {
     }
   };
 
-  const filteredEntities = entities.filter(e => e.type === activeTab);
+  const filteredEntities = entities.filter(e => 
+    e.type === activeTab && 
+    e.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   
   const filteredLocations = locations.filter(l => 
     l.name.toLowerCase().includes(locSearchQuery.toLowerCase())
   );
 
-  const handleAddEntity = async () => {
+  const handleEditEntity = (entity: any) => {
+    setEditingEntity(entity);
+    setNewName(entity.name);
+    setSelectedLocationId(entity.location_id);
+    setShowAddModal(true);
+  };
+
+  const handleSaveEntity = async () => {
     if (!newName.trim()) {
       Toast.show({
         type: 'error',
@@ -82,27 +94,37 @@ const EntitiesScreen = () => {
         locationId = locRes.data.id;
       }
 
-      await EntityService.createEntity({
+      const entityData = {
         name: newName.trim(),
         type: activeTab,
         location_id: locationId || undefined,
-      });
+      };
 
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: `${activeTab} added successfully`,
-      });
-      
+      if (editingEntity) {
+        await EntityService.updateEntity(editingEntity.id, entityData);
+        Toast.show({
+          type: 'success',
+          text1: 'Updated',
+          text2: `${activeTab} updated successfully`,
+        });
+      } else {
+        await EntityService.createEntity(entityData);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: `${activeTab} added successfully`,
+        });
+      }
+
       setShowAddModal(false);
       resetForm();
       fetchData();
     } catch (error) {
-      console.error('Create error:', error);
+      console.error('Save error:', error);
       Toast.show({
         type: 'error',
         text1: 'Save Failed',
-        text2: `Could not add ${activeTab} to database`,
+        text2: `Could not save ${activeTab} to database`,
       });
     } finally {
       setSubmitting(false);
@@ -110,6 +132,7 @@ const EntitiesScreen = () => {
   };
 
   const resetForm = () => {
+    setEditingEntity(null);
     setNewName('');
     setSelectedLocationId(null);
     setNewLocationName('');
@@ -155,6 +178,8 @@ const EntitiesScreen = () => {
           placeholder={`Search ${activeTab}s...`} 
           style={styles.searchInput}
           placeholderTextColor={theme.colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
       </View>
 
@@ -165,7 +190,7 @@ const EntitiesScreen = () => {
         onRefresh={fetchData}
         refreshing={loading}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.entityCard}>
+          <TouchableOpacity style={styles.entityCard} onPress={() => handleEditEntity(item)}>
             <View style={styles.entityIcon}>
               <Users size={20} color={theme.colors.primary} />
             </View>
@@ -193,8 +218,10 @@ const EntitiesScreen = () => {
         <SafeAreaView style={styles.fullScreenModal}>
           <View style={styles.modalHeader}>
             <View>
-              <Text style={styles.modalTitle}>New {activeTab}</Text>
-              <Text style={styles.modalSubtitle}>Register a new {activeTab} in the system</Text>
+              <Text style={styles.modalTitle}>{editingEntity ? 'Edit' : 'New'} {activeTab}</Text>
+              <Text style={styles.modalSubtitle}>
+                {editingEntity ? `Update details for this ${activeTab}` : `Register a new ${activeTab} in the system`}
+              </Text>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={() => {
               setShowAddModal(false);
@@ -243,13 +270,13 @@ const EntitiesScreen = () => {
               <View style={styles.footer}>
                 <TouchableOpacity 
                   style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
-                  onPress={handleAddEntity}
+                  onPress={handleSaveEntity}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.submitText}>Save {activeTab}</Text>
+                    <Text style={styles.submitText}>{editingEntity ? 'Save Changes' : `Save ${activeTab}`}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity 
