@@ -53,16 +53,21 @@ export const EntityService = {
     type?: 'supplier' | 'customer';
     location_id?: number;
   }) => api.put(`/entities/${id}`, data),
+  deleteEntity: (id: number) => api.delete(`/entities/${id}`),
 };
 
 export const CategoryService = {
   getCategories: () => api.get('/categories'),
   createCategory: (data: { name: string }) => api.post('/categories', data),
+  updateCategory: (id: number, data: { name: string }) => api.put(`/categories/${id}`, data),
+  deleteCategory: (id: number) => api.delete(`/categories/${id}`),
 };
 
 export const LocationService = {
   getLocations: () => api.get('/locations'),
   createLocation: (data: { name: string }) => api.post('/locations', data),
+  updateLocation: (id: number, data: { name: string }) => api.put(`/locations/${id}`, data),
+  deleteLocation: (id: number) => api.delete(`/locations/${id}`),
 };
 
 export const DashboardService = {

@@ -14,7 +14,7 @@ import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
 import ProductsScreen from './src/screens/Products/ProductsScreen';
 import StockEntryScreen from './src/screens/StockEntry/StockEntryScreen';
 import HistoryScreen from './src/screens/History/HistoryScreen';
-import EntitiesScreen from './src/screens/Entities/EntitiesScreen';
+import ManagementScreen from './src/screens/Management/ManagementScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -52,8 +52,8 @@ function MainTabs() {
         }}
       />
       <Tab.Screen 
-        name="Parties" 
-        component={EntitiesScreen} 
+        name="Management" 
+        component={ManagementScreen} 
         options={{
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}

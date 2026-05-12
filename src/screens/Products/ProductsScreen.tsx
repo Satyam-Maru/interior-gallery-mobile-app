@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, K
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Search, Plus, Filter, X, ChevronDown, AlertCircle } from 'lucide-react-native';
+import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2 } from 'lucide-react-native';
 import { ProductService, CategoryService } from '../../services/api';
 import Toast from 'react-native-toast-message';
 
@@ -263,20 +263,27 @@ const ProductsScreen = () => {
               style={[styles.productCard, isLowStock && styles.lowStockCard]}
               onPress={() => handleEditProduct(item)}
             >
-              <View style={styles.productInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.productName}>{item.name}</Text>
-                  {isLowStock && <AlertCircle size={16} color={theme.colors.error} style={{ marginLeft: 6 }} />}
+              <View style={styles.productMain}>
+                <View style={styles.productInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.productName}>{item.name}</Text>
+                    {isLowStock && <AlertCircle size={16} color={theme.colors.error} style={{ marginLeft: 6 }} />}
+                  </View>
+                  <Text style={styles.productCategory}>
+                    {categories.find(c => c.id === item.category_id)?.name || 'Uncategorized'}
+                  </Text>
                 </View>
-                <Text style={styles.productCategory}>
-                  {categories.find(c => c.id === item.category_id)?.name || 'Uncategorized'}
-                </Text>
+                <View style={styles.stockInfo}>
+                  <Text style={[styles.stockCount, isLowStock && styles.lowStockText]}>
+                    {item.quantity} {item.unit || 'units'}
+                  </Text>
+                  <Text style={styles.price}>₹{parseFloat(item.price).toLocaleString()}</Text>
+                </View>
               </View>
-              <View style={styles.stockInfo}>
-                <Text style={[styles.stockCount, isLowStock && styles.lowStockText]}>
-                  {item.quantity} {item.unit || 'units'}
-                </Text>
-                <Text style={styles.price}>₹{parseFloat(item.price).toLocaleString()}</Text>
+              <View style={styles.actions}>
+                <View style={styles.actionButton}>
+                  <Edit2 size={18} color={theme.colors.textSecondary} />
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -647,8 +654,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  productMain: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   productInfo: {
     flex: 1,
+    marginRight: theme.spacing.md,
   },
   productName: {
     ...theme.typography.h3,
@@ -671,6 +685,7 @@ const styles = StyleSheet.create({
   },
   stockInfo: {
     alignItems: 'flex-end',
+    marginRight: theme.spacing.md,
   },
   stockCount: {
     fontWeight: '600',
@@ -679,6 +694,23 @@ const styles = StyleSheet.create({
   price: {
     ...theme.typography.caption,
     marginTop: 2,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: theme.spacing.md,
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   fullScreenModal: {
     flex: 1,

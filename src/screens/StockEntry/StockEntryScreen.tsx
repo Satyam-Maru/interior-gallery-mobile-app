@@ -56,6 +56,7 @@ const StockEntryScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       resetForm();
+      fetchData();
     }, [])
   );
 
@@ -403,7 +404,6 @@ const StockEntryScreen = () => {
           </SafeAreaView>
         </View>
       )}
-      <Toast />
     </SafeAreaView>
   );
 };
