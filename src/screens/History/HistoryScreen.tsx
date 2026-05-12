@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, Toucha
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { ArrowUpRight, ArrowDownLeft, Clock, Filter, Calendar, X } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { StockService, ProductService, EntityService } from '../../services/api';
 import Toast, { showToast } from '../../components/Toast';
 
@@ -11,29 +12,41 @@ const HistoryScreen = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [parties, setParties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'custom'>('all');
   const [showCustomModal, setShowCustomModal] = useState(false);
-  const [customRange, setCustomRange] = useState({ start: '', end: '' });
+  const [customRange, setCustomRange] = useState({ 
+    start: new Date(new Date().setMonth(new Date().getMonth() - 1)), 
+    end: new Date() 
+  });
+  const [showPicker, setShowPicker] = useState<{ show: boolean; type: 'start' | 'end' }>({ show: false, type: 'start' });
 
   useEffect(() => {
-    if (activeFilter !== 'custom') {
+    if (activeFilter === 'all') {
       fetchData();
     }
   }, [activeFilter]);
 
   const handleApplyCustom = () => {
-    if (!customRange.start || !customRange.end) {
-      showToast({ type: 'error', text1: 'Required', text2: 'Please enter both dates' });
-      return;
-    }
-    const start = new Date(customRange.start);
-    const end = new Date(customRange.end);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      showToast({ type: 'error', text1: 'Invalid Date', text2: 'Use YYYY-MM-DD format' });
-      return;
-    }
     setShowCustomModal(false);
-    fetchData(customRange);
+    setActiveFilter('custom');
+    fetchData({ 
+      start: customRange.start.toISOString(), 
+      end: customRange.end.toISOString() 
+    });
+  };
+
+  const onValueChange = (event: any, selectedDate?: Date) => {
+    setShowPicker({ show: false, type: showPicker.type });
+    if (selectedDate) {
+      setCustomRange(prev => ({
+        ...prev,
+        [showPicker.type]: selectedDate
+      }));
+    }
+  };
+
+  const onDismiss = () => {
+    setShowPicker({ show: false, type: showPicker.type });
   };
 
   const fetchData = async (range?: { start: string; end: string }) => {
@@ -42,17 +55,10 @@ const HistoryScreen = () => {
       
       let startDate: string | undefined;
       let endDate: string | undefined;
-      const now = new Date();
       
-      if (activeFilter === 'today') {
-        startDate = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-      } else if (activeFilter === 'week') {
-        startDate = new Date(now.setDate(now.getDate() - 7)).toISOString();
-      } else if (activeFilter === 'month') {
-        startDate = new Date(now.setMonth(now.getMonth() - 1)).toISOString();
-      } else if (activeFilter === 'custom' && range) {
-        startDate = new Date(range.start).toISOString();
-        endDate = new Date(range.end).toISOString();
+      if (activeFilter === 'custom' || range) {
+        startDate = range?.start || customRange.start.toISOString();
+        endDate = range?.end || customRange.end.toISOString();
       }
 
       const [histRes, prodRes, entRes] = await Promise.all([
@@ -94,10 +100,7 @@ const HistoryScreen = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {[
             { id: 'all', label: 'All Time' },
-            { id: 'today', label: 'Today' },
-            { id: 'week', label: 'Last 7 Days' },
-            { id: 'month', label: 'This Month' },
-            { id: 'custom', label: 'Custom Range' },
+            { id: 'custom', label: activeFilter === 'custom' ? 'Filtered Range' : 'Select Range' },
           ].map((filter) => (
             <TouchableOpacity 
               key={filter.id}
@@ -109,10 +112,11 @@ const HistoryScreen = () => {
                 if (filter.id === 'custom') {
                   setShowCustomModal(true);
                 } else {
-                  setActiveFilter(filter.id as any);
+                  setActiveFilter('all');
                 }
               }}
             >
+              {filter.id === 'custom' && <Calendar size={14} color={activeFilter === 'custom' ? '#FFF' : theme.colors.textSecondary} style={{ marginRight: 6 }} />}
               <Text style={[
                 styles.filterText,
                 activeFilter === filter.id && styles.activeFilterText
@@ -128,7 +132,7 @@ const HistoryScreen = () => {
         data={history}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
-        onRefresh={() => fetchData(activeFilter === 'custom' ? customRange : undefined)}
+        onRefresh={() => fetchData()}
         refreshing={loading}
         renderItem={({ item }) => {
           const product = products.find(p => p.id === item.product_id);
@@ -201,25 +205,25 @@ const HistoryScreen = () => {
 
             <View style={styles.form}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Start Date (YYYY-MM-DD)</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="2024-01-01"
-                  value={customRange.start}
-                  onChangeText={(v) => setCustomRange(prev => ({ ...prev, start: v }))}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
+                <Text style={styles.label}>Start Date</Text>
+                <TouchableOpacity 
+                  style={styles.dateSelector} 
+                  onPress={() => setShowPicker({ show: true, type: 'start' })}
+                >
+                  <Calendar size={18} color={theme.colors.textSecondary} />
+                  <Text style={styles.dateSelectorText}>{customRange.start.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>End Date (YYYY-MM-DD)</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="2024-12-31"
-                  value={customRange.end}
-                  onChangeText={(v) => setCustomRange(prev => ({ ...prev, end: v }))}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
+                <Text style={styles.label}>End Date</Text>
+                <TouchableOpacity 
+                  style={styles.dateSelector} 
+                  onPress={() => setShowPicker({ show: true, type: 'end' })}
+                >
+                  <Calendar size={18} color={theme.colors.textSecondary} />
+                  <Text style={styles.dateSelectorText}>{customRange.end.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={styles.applyButton} onPress={handleApplyCustom}>
@@ -229,6 +233,17 @@ const HistoryScreen = () => {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {showPicker.show && (
+        <DateTimePicker
+          value={showPicker.type === 'start' ? customRange.start : customRange.end}
+          mode="date"
+          display="default"
+          onValueChange={onValueChange}
+          onDismiss={onDismiss}
+          maximumDate={new Date()}
+        />
+      )}
 
       <Toast />
     </SafeAreaView>
@@ -334,6 +349,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     ...theme.typography.body,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: 12,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 12,
+  },
+  dateSelectorText: {
+    ...theme.typography.body,
+    color: theme.colors.text,
   },
   applyButton: {
     backgroundColor: theme.colors.primary,
