@@ -7,6 +7,10 @@ import { ArrowUpRight, ArrowDownLeft, Clock, Filter, Calendar, X, ChevronDown, S
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { StockService, ProductService, EntityService } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { FileSpreadsheet, TrendingUp, TrendingDown, Wallet } from 'lucide-react-native';
 
 const HistoryScreen = () => {
   const [history, setHistory] = useState<any[]>([]);
@@ -36,6 +40,8 @@ const HistoryScreen = () => {
   const [partySearch, setPartySearch] = useState('');
   const [showPicker, setShowPicker] = useState<{ show: boolean; type: 'start' | 'end' }>({ show: false, type: 'start' });
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
+  const [totals, setTotals] = useState({ sales: 0, purchases: 0, net: 0 });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -154,6 +160,114 @@ const HistoryScreen = () => {
     }
   };
 
+  useEffect(() => {
+    calculateTotals();
+  }, [history]);
+
+  const calculateTotals = () => {
+    let sales = 0;
+    let purchases = 0;
+    
+    history.forEach(item => {
+      const quantity = parseFloat(item.quantity);
+      const price = parseFloat(item.price);
+      const discount = parseFloat(item.discount || 0);
+      const finalTotal = (quantity * price) * (1 - (discount / 100));
+      
+      if (item.type === 'sell') {
+        sales += finalTotal;
+      } else {
+        purchases += finalTotal;
+      }
+    });
+    
+    setTotals({
+      sales,
+      purchases,
+      net: sales - purchases
+    });
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      
+      // Prepare data for Excel
+      const excelData: any[] = history.map(item => {
+        const product = products.find(p => p.id === item.product_id);
+        const party = parties.find(p => p.id === item.entity_id);
+        const quantity = parseFloat(item.quantity);
+        const price = parseFloat(item.price);
+        const discount = parseFloat(item.discount || 0);
+        const finalTotal = (quantity * price) * (1 - (discount / 100));
+
+        return {
+          Date: formatIST(item.created_at).split(' • ')[0],
+          Time: formatIST(item.created_at).split(' • ')[1],
+          Type: item.type.toUpperCase(),
+          Product: product?.name || 'Unknown',
+          Party: party?.name || 'Unknown',
+          Quantity: quantity,
+          Unit: product?.unit || '',
+          'Price/Unit': price,
+          'Discount (%)': discount,
+          'Final Total': finalTotal
+        };
+      });
+
+      // Add Summary Rows
+      excelData.push({}); // Empty row
+      excelData.push({
+        Product: 'SUMMARY',
+        'Price/Unit': 'Total Sales:',
+        'Final Total': totals.sales
+      });
+      excelData.push({
+        'Price/Unit': 'Total Purchases:',
+        'Final Total': totals.purchases
+      });
+      excelData.push({
+        'Price/Unit': 'Net Balance:',
+        'Final Total': totals.net
+      });
+
+      // Create workbook and worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "History");
+
+      // Generate base64 string
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      
+      // File path
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `Inventory_Report_${dateStr}.xlsx`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+
+      // Write file
+      await FileSystem.writeAsStringAsync(fileUri, wbout, {
+        encoding: 'base64'
+      });
+
+      // Share file
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        dialogTitle: 'Export Inventory History',
+        UTI: 'com.microsoft.excel.xlsx'
+      });
+
+    } catch (error) {
+      console.error('Export error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Export Failed',
+        text2: 'Could not generate Excel file'
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const activeFilterCount = (activeFilter === 'custom' ? 1 : 0) + (selectedProductId ? 1 : 0) + (selectedEntityId ? 1 : 0);
 
   if (loading) {
@@ -221,6 +335,57 @@ const HistoryScreen = () => {
       <FlatList
         data={history}
         keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={() => (
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryGrid}>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <TrendingUp size={16} color={theme.colors.success} />
+                  <Text style={styles.summaryLabelText}>Total Sales</Text>
+                </View>
+                <Text style={[styles.summaryValueText, { color: theme.colors.success }]}>
+                  ₹{totals.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </Text>
+              </View>
+              
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <TrendingDown size={16} color={theme.colors.error} />
+                  <Text style={styles.summaryLabelText}>Total Buy</Text>
+                </View>
+                <Text style={[styles.summaryValueText, { color: theme.colors.error }]}>
+                  ₹{totals.purchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.netCard, { backgroundColor: totals.net >= 0 ? theme.colors.success + '10' : theme.colors.error + '10' }]}>
+              <View style={styles.netInfo}>
+                <Wallet size={20} color={totals.net >= 0 ? theme.colors.success : theme.colors.error} />
+                <View>
+                  <Text style={styles.netLabel}>Net Balance</Text>
+                  <Text style={[styles.netValue, { color: totals.net >= 0 ? theme.colors.success : theme.colors.error }]}>
+                    ₹{totals.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={[styles.exportButton, exporting && { opacity: 0.7 }]} 
+                onPress={handleExportExcel}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <FileSpreadsheet size={18} color="#FFF" />
+                    <Text style={styles.exportText}>Export</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         contentContainerStyle={styles.listContent}
         onRefresh={() => fetchData()}
         refreshing={loading}
@@ -454,7 +619,6 @@ const HistoryScreen = () => {
                         style={styles.modalSearchInputMini}
                         value={productSearch}
                         onChangeText={setProductSearch}
-                        autoFocus={Platform.OS === 'android'}
                       />
                     </View>
                     <FlatList
@@ -485,7 +649,6 @@ const HistoryScreen = () => {
                         style={styles.modalSearchInputMini}
                         value={partySearch}
                         onChangeText={setPartySearch}
-                        autoFocus={Platform.OS === 'android'}
                       />
                     </View>
                     <FlatList
@@ -603,6 +766,81 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  summaryContainer: {
+    marginBottom: theme.spacing.lg,
+    gap: 12,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: theme.colors.surface,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 4,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryLabelText: {
+    ...theme.typography.caption,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  summaryValueText: {
+    ...theme.typography.h2,
+    fontSize: 18,
+  },
+  netCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  netInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  netLabel: {
+    ...theme.typography.caption,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  netValue: {
+    ...theme.typography.h2,
+    fontSize: 20,
+  },
+  exportButton: {
+    backgroundColor: '#1D6F42', // Excel Green
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  exportText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
   filterModalOverlay: {
     ...StyleSheet.absoluteFillObject,
