@@ -182,7 +182,14 @@ const EntitiesScreen = () => {
         )}
       />
 
-      <Modal visible={showAddModal} animationType="slide">
+      <Modal 
+        visible={showAddModal} 
+        animationType="slide"
+        onRequestClose={() => {
+          setShowAddModal(false);
+          resetForm();
+        }}
+      >
         <SafeAreaView style={styles.fullScreenModal}>
           <View style={styles.modalHeader}>
             <View>

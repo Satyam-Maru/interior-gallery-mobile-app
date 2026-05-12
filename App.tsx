@@ -24,6 +24,7 @@ SplashScreen.preventAutoHideAsync();
 function MainTabs() {
   return (
     <Tab.Navigator
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

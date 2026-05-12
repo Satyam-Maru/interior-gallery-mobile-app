@@ -251,7 +251,12 @@ const HistoryScreen = () => {
       />
 
       {/* Transaction Detail Modal */}
-      <Modal visible={!!selectedEntry} animationType="fade" transparent>
+      <Modal 
+        visible={!!selectedEntry} 
+        animationType="fade" 
+        transparent
+        onRequestClose={() => setSelectedEntry(null)}
+      >
         <View style={styles.detailModalOverlay}>
           <View style={styles.detailCard}>
             <View style={styles.detailHeader}>
@@ -327,7 +332,17 @@ const HistoryScreen = () => {
       </Modal>
 
       {/* Flipkart-style Sidebar Filter Modal */}
-      <Modal visible={showFilterModal} animationType="slide" transparent>
+      <Modal 
+        visible={showFilterModal} 
+        animationType="slide" 
+        transparent
+        onRequestClose={() => {
+          setShowFilterModal(false);
+          setTempFilter(activeFilter);
+          setTempProductId(selectedProductId);
+          setTempEntityId(selectedEntityId);
+        }}
+      >
         <View style={styles.filterModalOverlay}>
           <View style={styles.filterModalContent}>
             {/* Modal Header */}
