@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Users, Plus, Search, MapPin, X, ChevronDown, Truck } from 'lucide-react-native';
 import { EntityService, LocationService } from '../../services/api';
-import Toast, { showToast } from '../../components/Toast';
+import Toast from 'react-native-toast-message';
 
 const EntitiesScreen = () => {
   const [activeTab, setActiveTab] = useState<'supplier' | 'customer'>('supplier');
@@ -38,7 +38,7 @@ const EntitiesScreen = () => {
       setLocations(locRes.data);
     } catch (error) {
       console.error('Fetch error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Fetch Failed',
         text2: 'Could not load party data',
@@ -56,7 +56,7 @@ const EntitiesScreen = () => {
 
   const handleAddEntity = async () => {
     if (!newName.trim()) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: `Please enter ${activeTab} name`,
@@ -81,7 +81,7 @@ const EntitiesScreen = () => {
         location_id: locationId || undefined,
       });
 
-      showToast({
+      Toast.show({
         type: 'success',
         text1: 'Success',
         text2: `${activeTab} added successfully`,
@@ -92,7 +92,7 @@ const EntitiesScreen = () => {
       fetchData();
     } catch (error) {
       console.error('Create error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Save Failed',
         text2: `Could not add ${activeTab} to database`,

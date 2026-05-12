@@ -5,7 +5,7 @@ import { theme } from '../../theme';
 import { ArrowUpRight, ArrowDownLeft, Clock, Filter, Calendar, X } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { StockService, ProductService, EntityService } from '../../services/api';
-import Toast, { showToast } from '../../components/Toast';
+import Toast from 'react-native-toast-message';
 
 const HistoryScreen = () => {
   const [history, setHistory] = useState<any[]>([]);
@@ -71,7 +71,7 @@ const HistoryScreen = () => {
       setParties(entRes.data);
     } catch (error) {
       console.error('Fetch error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Fetch Failed',
         text2: 'Could not load transaction history',
@@ -231,6 +231,7 @@ const HistoryScreen = () => {
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
+          <Toast />
         </View>
       </Modal>
 
@@ -245,7 +246,6 @@ const HistoryScreen = () => {
         />
       )}
 
-      <Toast />
     </SafeAreaView>
   );
 };

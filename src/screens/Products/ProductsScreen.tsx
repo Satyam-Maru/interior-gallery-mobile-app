@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Search, Plus, Filter, X, ChevronDown, AlertCircle } from 'lucide-react-native';
 import { ProductService, CategoryService } from '../../services/api';
-import Toast, { showToast } from '../../components/Toast';
+import Toast from 'react-native-toast-message';
 
 const ProductsScreen = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -45,7 +45,7 @@ const ProductsScreen = () => {
       setCategories(catRes.data);
     } catch (error) {
       console.error('Fetch error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Fetch Failed',
         text2: 'Could not load inventory data',
@@ -58,7 +58,7 @@ const ProductsScreen = () => {
   const handleAddProduct = async () => {
     // Validation
     if (!newName.trim()) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Product name is required',
@@ -68,7 +68,7 @@ const ProductsScreen = () => {
 
     const priceNum = parseFloat(newPrice);
     if (isNaN(priceNum) || priceNum <= 0) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please enter a valid price',
@@ -78,7 +78,7 @@ const ProductsScreen = () => {
 
     const qtyNum = parseFloat(newQuantity);
     if (isNaN(qtyNum)) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please enter a valid initial stock',
@@ -87,7 +87,7 @@ const ProductsScreen = () => {
     }
 
     if (!selectedCategoryId && !newCategoryName.trim()) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please select or create a category',
@@ -107,7 +107,7 @@ const ProductsScreen = () => {
       }
 
       if (!categoryId) {
-        showToast({
+        Toast.show({
           type: 'error',
           text1: 'Category Error',
           text2: 'Failed to resolve category',
@@ -123,7 +123,7 @@ const ProductsScreen = () => {
         category_id: categoryId,
       });
 
-      showToast({
+      Toast.show({
         type: 'success',
         text1: 'Success',
         text2: 'Product added successfully',
@@ -134,7 +134,7 @@ const ProductsScreen = () => {
       fetchData();
     } catch (error) {
       console.error('Create error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Save Failed',
         text2: 'Could not add product to database',
@@ -458,7 +458,6 @@ const ProductsScreen = () => {
         </View>
       </Modal>
 
-      <Toast />
     </SafeAreaView>
   );
 };

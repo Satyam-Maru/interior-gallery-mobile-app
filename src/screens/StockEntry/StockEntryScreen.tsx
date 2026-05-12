@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { ArrowUpRight, ArrowDownLeft, ChevronDown, Search, X, Percent } from 'lucide-react-native';
 import { StockService, ProductService, EntityService } from '../../services/api';
-import Toast, { showToast } from '../../components/Toast';
+import Toast from 'react-native-toast-message';
 
 const StockEntryScreen = () => {
   const [type, setType] = useState<'purchase' | 'sell'>('purchase');
@@ -42,7 +42,7 @@ const StockEntryScreen = () => {
       setParties(entRes.data);
     } catch (error) {
       console.error('Fetch error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Fetch Failed',
         text2: 'Could not load data from server',
@@ -63,7 +63,7 @@ const StockEntryScreen = () => {
   const handleSubmit = async () => {
     // Validation
     if (!selectedProduct) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please select a product',
@@ -72,7 +72,7 @@ const StockEntryScreen = () => {
     }
 
     if (!selectedParty) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: `Please select a ${type === 'purchase' ? 'supplier' : 'customer'}`,
@@ -82,7 +82,7 @@ const StockEntryScreen = () => {
 
     const qtyNum = parseFloat(quantity);
     if (isNaN(qtyNum) || qtyNum <= 0) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please enter a valid quantity',
@@ -92,7 +92,7 @@ const StockEntryScreen = () => {
 
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum <= 0) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Validation Error',
         text2: 'Please enter a valid price',
@@ -102,7 +102,7 @@ const StockEntryScreen = () => {
 
     // Business Logic Validation
     if (type === 'sell' && qtyNum > selectedProduct.quantity) {
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Insufficient Stock',
         text2: `Only ${selectedProduct.quantity} units available in inventory`,
@@ -121,7 +121,7 @@ const StockEntryScreen = () => {
         entity_id: selectedParty.id,
       });
 
-      showToast({
+      Toast.show({
         type: 'success',
         text1: 'Transaction Recorded',
         text2: 'Inventory updated successfully',
@@ -131,7 +131,7 @@ const StockEntryScreen = () => {
       fetchData();
     } catch (error) {
       console.error('Submit error:', error);
-      showToast({
+      Toast.show({
         type: 'error',
         text1: 'Save Failed',
         text2: 'Could not record transaction',
@@ -327,6 +327,7 @@ const StockEntryScreen = () => {
               </TouchableOpacity>
             )}
           />
+          <Toast />
         </SafeAreaView>
       </Modal>
 
@@ -367,9 +368,9 @@ const StockEntryScreen = () => {
               </TouchableOpacity>
             )}
           />
+          <Toast />
         </SafeAreaView>
       </Modal>
-      <Toast />
     </SafeAreaView>
   );
 };

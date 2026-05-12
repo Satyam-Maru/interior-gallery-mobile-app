@@ -7,7 +7,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { theme } from './src/theme';
 import { LayoutDashboard, Package, ArrowLeftRight, History as HistoryIcon, Users } from 'lucide-react-native';
-import Toast from './src/components/Toast';
+import Toast from 'react-native-toast-message';
 
 // Screens
 import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
