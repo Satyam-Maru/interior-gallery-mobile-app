@@ -158,7 +158,7 @@ const StockEntryScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Stock Entry</Text>
         
@@ -305,7 +305,6 @@ const StockEntryScreen = () => {
               style={styles.modalSearchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
             />
           </View>
           <FlatList
@@ -347,7 +346,6 @@ const StockEntryScreen = () => {
               style={styles.modalSearchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
             />
           </View>
           <FlatList
@@ -372,7 +370,7 @@ const StockEntryScreen = () => {
         </SafeAreaView>
       </Modal>
       <Toast />
-    </View>
+    </SafeAreaView>
   );
 };
 

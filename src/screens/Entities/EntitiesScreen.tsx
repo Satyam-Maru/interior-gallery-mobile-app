@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Users, Plus, Search, MapPin, X, ChevronDown } from 'lucide-react-native';
+import { Users, Plus, Search, MapPin, X, ChevronDown, Truck } from 'lucide-react-native';
 import { EntityService, LocationService } from '../../services/api';
 import Toast, { showToast } from '../../components/Toast';
 
@@ -117,7 +117,7 @@ const EntitiesScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Parties</Text>
         <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
@@ -127,16 +127,18 @@ const EntitiesScreen = () => {
 
       <View style={styles.tabBar}>
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'supplier' && styles.activeTab]}
+          style={[styles.tabButton, activeTab === 'supplier' && styles.activeTabButton]}
           onPress={() => setActiveTab('supplier')}
         >
-          <Text style={[styles.tabText, activeTab === 'supplier' && styles.activeTabText]}>Suppliers</Text>
+          <Truck size={20} color={activeTab === 'supplier' ? '#FFF' : theme.colors.textSecondary} />
+          <Text style={[styles.tabButtonText, activeTab === 'supplier' && styles.activeTabButtonText]}>Suppliers</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'customer' && styles.activeTab]}
+          style={[styles.tabButton, activeTab === 'customer' && styles.activeTabButton]}
           onPress={() => setActiveTab('customer')}
         >
-          <Text style={[styles.tabText, activeTab === 'customer' && styles.activeTabText]}>Customers</Text>
+          <Users size={20} color={activeTab === 'customer' ? '#FFF' : theme.colors.textSecondary} />
+          <Text style={[styles.tabButtonText, activeTab === 'customer' && styles.activeTabButtonText]}>Customers</Text>
         </TouchableOpacity>
       </View>
 
@@ -214,7 +216,7 @@ const EntitiesScreen = () => {
                     setShowLocationModal(true);
                   }}
                 >
-                  <Text style={[styles.pickerText, (selectedLocationId || newLocationName) && { color: theme.colors.text }]}>
+                  <Text style={[styles.pickerText, (selectedLocationId || newLocationName) ? { color: theme.colors.text } : null]}>
                     {newLocationName ? newLocationName : (selectedLocationId ? locations.find(l => l.id === selectedLocationId)?.name : 'Select Location')}
                   </Text>
                   <ChevronDown size={20} color={theme.colors.textSecondary} />
@@ -223,7 +225,7 @@ const EntitiesScreen = () => {
 
               <View style={styles.footer}>
                 <TouchableOpacity 
-                  style={[styles.submitButton, submitting && { opacity: 0.7 }]} 
+                  style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
                   onPress={handleAddEntity}
                   disabled={submitting}
                 >
@@ -264,7 +266,6 @@ const EntitiesScreen = () => {
                 style={styles.modalSearchInput}
                 value={locSearchQuery}
                 onChangeText={setLocSearchQuery}
-                autoFocus
               />
             </View>
 
@@ -303,7 +304,7 @@ const EntitiesScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -332,25 +333,31 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    padding: 6,
+    marginHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.xl,
+    gap: 6,
   },
-  tab: {
-    paddingVertical: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.sm,
+    gap: 8,
   },
-  activeTab: {
-    borderBottomColor: theme.colors.primary,
+  activeTabButton: {
+    backgroundColor: theme.colors.primary,
   },
-  tabText: {
-    ...theme.typography.body,
+  tabButtonText: {
     fontWeight: '600',
     color: theme.colors.textSecondary,
   },
-  activeTabText: {
-    color: theme.colors.primary,
+  activeTabButtonText: {
+    color: '#FFF',
   },
   searchContainer: {
     flexDirection: 'row',

@@ -77,6 +77,7 @@ function MainTabs() {
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
+  const [splashVisible, setSplashVisible] = useState(true);
   const fadeAnim = useState(new Animated.Value(1))[0];
 
   useEffect(() => {
@@ -102,7 +103,9 @@ export default function App() {
         toValue: 0,
         duration: 800,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        setSplashVisible(false);
+      });
     }
   }, [appIsReady, fadeAnim]);
 
@@ -112,7 +115,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} onLayout={onLayoutRootView}>
+      <View style={styles.container} onLayout={onLayoutRootView}>
         <StatusBar style="dark" />
         <NavigationContainer theme={{
           ...DefaultTheme,
@@ -129,21 +132,23 @@ export default function App() {
           <MainTabs />
         </NavigationContainer>
 
-        <Animated.View 
-          style={[
-            styles.splashOverlay, 
-            { opacity: fadeAnim, pointerEvents: appIsReady ? 'none' : 'auto' }
-          ]}
-        >
-          <Image 
-            source={require('./assets/Logo.jpeg')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.loadingText}>Loading Premium Experience...</Text>
-        </Animated.View>
+        {splashVisible && (
+          <Animated.View 
+            style={[
+              styles.splashOverlay, 
+              { opacity: fadeAnim }
+            ]}
+          >
+            <Image 
+              source={require('./assets/Logo.jpeg')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.loadingText}>Loading Premium Experience...</Text>
+          </Animated.View>
+        )}
         <Toast />
-      </SafeAreaView>
+      </View>
     </SafeAreaProvider>
   );
 }

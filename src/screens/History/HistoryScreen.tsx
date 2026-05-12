@@ -84,7 +84,7 @@ const HistoryScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>History</Text>
         <Clock size={24} color={theme.colors.primary} />
@@ -231,7 +231,7 @@ const HistoryScreen = () => {
       </Modal>
 
       <Toast />
-    </View>
+    </SafeAreaView>
   );
 };
 

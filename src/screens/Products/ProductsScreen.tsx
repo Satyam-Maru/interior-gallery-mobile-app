@@ -172,7 +172,7 @@ const ProductsScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Inventory</Text>
         <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
@@ -326,7 +326,7 @@ const ProductsScreen = () => {
                     setShowCategoryModal(true);
                   }}
                 >
-                  <Text style={[styles.pickerText, (selectedCategoryId || newCategoryName) && { color: theme.colors.text }]}>
+                  <Text style={[styles.pickerText, (selectedCategoryId || newCategoryName) ? { color: theme.colors.text } : null]}>
                     {newCategoryName ? newCategoryName : (selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : 'Select Category')}
                   </Text>
                   <ChevronDown size={20} color={theme.colors.textSecondary} />
@@ -335,7 +335,7 @@ const ProductsScreen = () => {
 
               <View style={styles.footer}>
                 <TouchableOpacity 
-                  style={[styles.submitButton, submitting && { opacity: 0.7 }]} 
+                  style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
                   onPress={handleAddProduct}
                   disabled={submitting}
                 >
@@ -376,7 +376,6 @@ const ProductsScreen = () => {
                 style={styles.modalSearchInput}
                 value={catSearchQuery}
                 onChangeText={setCatSearchQuery}
-                autoFocus
               />
             </View>
 
@@ -460,7 +459,7 @@ const ProductsScreen = () => {
       </Modal>
 
       <Toast />
-    </View>
+    </SafeAreaView>
   );
 };
 

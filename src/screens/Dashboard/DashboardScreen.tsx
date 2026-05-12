@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { LayoutGrid, Package, ArrowUpRight, ArrowDownLeft, History } from 'lucide-react-native';
 
@@ -17,7 +18,8 @@ const StatCard = ({ title, value, icon: Icon, color }: any) => (
 
 const DashboardScreen = () => {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.greeting}>Overview</Text>
         <Text style={styles.date}>Monday, May 12</Text>
@@ -70,7 +72,8 @@ const DashboardScreen = () => {
           </View>
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

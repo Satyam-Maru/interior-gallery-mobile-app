@@ -32,6 +32,10 @@ export const theme = {
       fontSize: 24,
       fontWeight: '600',
     },
+    h3: {
+      fontSize: 20,
+      fontWeight: '600',
+    },
     body: {
       fontSize: 16,
       fontWeight: '400',
@@ -41,4 +45,4 @@ export const theme = {
       color: '#6C757D',
     },
   },
-};
+} as const;

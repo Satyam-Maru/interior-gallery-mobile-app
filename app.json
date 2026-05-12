@@ -21,10 +21,16 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.interior.stockmanager"
     },
     "web": {
       "favicon": "./assets/Logo.jpeg"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "113d3252-c9de-4808-8fef-09957714d053"
+      }
     }
   }
 }
