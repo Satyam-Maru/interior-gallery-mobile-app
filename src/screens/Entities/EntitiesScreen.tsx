@@ -26,13 +26,10 @@ const EntitiesScreen = () => {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locSearchQuery, setLocSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   useFocusEffect(
     React.useCallback(() => {
       resetForm();
+      fetchData();
     }, [])
   );
 

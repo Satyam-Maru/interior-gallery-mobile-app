@@ -32,13 +32,10 @@ const ProductsScreen = () => {
 
   const commonUnits = ['pcs', 'kg', 'meter'];
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   useFocusEffect(
     React.useCallback(() => {
       resetForm();
+      fetchData();
     }, [])
   );
 

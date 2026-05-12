@@ -51,6 +51,7 @@ const HistoryScreen = () => {
       setTempProductId(null);
       setTempEntityId(null);
       setSelectedEntry(null);
+      fetchData();
     }, [])
   );
 
