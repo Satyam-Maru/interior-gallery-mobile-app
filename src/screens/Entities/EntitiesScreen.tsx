@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, BackHandler } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
@@ -25,6 +25,28 @@ const EntitiesScreen = () => {
   // UI State
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locSearchQuery, setLocSearchQuery] = useState('');
+
+  useEffect(() => {
+    const backAction = () => {
+      if (showLocationModal) {
+        setShowLocationModal(false);
+        return true;
+      }
+      if (showAddModal) {
+        setShowAddModal(false);
+        resetForm();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [showLocationModal, showAddModal]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -204,150 +226,147 @@ const EntitiesScreen = () => {
         )}
       />
 
-      <Modal 
-        visible={showAddModal} 
-        animationType="slide"
-        onRequestClose={() => {
-          setShowAddModal(false);
-          resetForm();
-        }}
-      >
-        <SafeAreaView style={styles.fullScreenModal}>
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.modalTitle}>{editingEntity ? 'Edit' : 'New'} {activeTab}</Text>
-              <Text style={styles.modalSubtitle}>
-                {editingEntity ? `Update details for this ${activeTab}` : `Register a new ${activeTab} in the system`}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.closeButton} onPress={() => {
-              setShowAddModal(false);
-              resetForm();
-            }}>
-              <X size={20} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-          >
-            <ScrollView 
-              style={styles.fullScreenForm} 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 40 }}
-            >
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Name *</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder={`Enter ${activeTab} name`}
-                  value={newName}
-                  onChangeText={setNewName}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
+      {/* Add/Edit Party Modal - Now a View for better compatibility */}
+      {showAddModal && (
+        <View style={styles.mainModalOverlay}>
+          <SafeAreaView style={styles.fullScreenModal}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>{editingEntity ? 'Edit' : 'New'} {activeTab}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {editingEntity ? `Update details for this ${activeTab}` : `Register a new ${activeTab} in the system`}
+                </Text>
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Location</Text>
-                <TouchableOpacity 
-                  style={styles.picker}
-                  onPress={() => {
-                    setLocSearchQuery('');
-                    setShowLocationModal(true);
-                  }}
-                >
-                  <Text style={[styles.pickerText, (selectedLocationId || newLocationName) ? { color: theme.colors.text } : null]}>
-                    {newLocationName ? newLocationName : (selectedLocationId ? locations.find(l => l.id === selectedLocationId)?.name : 'Select Location')}
-                  </Text>
-                  <ChevronDown size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.footer}>
-                <TouchableOpacity 
-                  style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
-                  onPress={handleSaveEntity}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.submitText}>{editingEntity ? 'Save Changes' : `Save ${activeTab}`}</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.cancelButton} 
-                  onPress={() => {
-                    setShowAddModal(false);
-                    resetForm();
-                  }}
-                >
-                  <Text style={styles.cancelText}>Discard</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-          <Toast />
-        </SafeAreaView>
-      </Modal>
-
-      {/* Searchable Location Modal */}
-      <Modal visible={showLocationModal} animationType="fade" transparent>
-        <View style={styles.innerModalOverlay}>
-          <View style={styles.innerModalContent}>
-            <View style={styles.innerModalHeader}>
-              <Text style={styles.innerModalTitle}>Select Location</Text>
-              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => {
+                setShowAddModal(false);
+                resetForm();
+              }}>
                 <X size={20} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalSearch}>
-              <Search size={18} color={theme.colors.textSecondary} />
-              <TextInput 
-                placeholder="Search or add new..." 
-                style={styles.modalSearchInput}
-                value={locSearchQuery}
-                onChangeText={setLocSearchQuery}
-              />
-            </View>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
+              <ScrollView 
+                style={styles.fullScreenForm} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+              >
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Name *</Text>
+                  <TextInput 
+                    style={styles.input}
+                    placeholder={`Enter ${activeTab} name`}
+                    value={newName}
+                    onChangeText={setNewName}
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                </View>
 
-            <FlatList
-              data={filteredLocations}
-              keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.selectItem}
-                  onPress={() => {
-                    setSelectedLocationId(item.id);
-                    setNewLocationName('');
-                    setShowLocationModal(false);
-                  }}
-                >
-                  <Text style={styles.selectItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={() => (
-                locSearchQuery.length > 0 ? (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Location</Text>
                   <TouchableOpacity 
-                    style={styles.addNewItem}
+                    style={styles.picker}
                     onPress={() => {
-                      setNewLocationName(locSearchQuery);
-                      setSelectedLocationId(null);
-                      setShowLocationModal(false);
+                      setLocSearchQuery('');
+                      setShowLocationModal(true);
                     }}
                   >
-                    <Plus size={18} color={theme.colors.primary} />
-                    <Text style={styles.addNewItemText}>Add "{locSearchQuery}" as new location</Text>
+                    <Text style={[styles.pickerText, (selectedLocationId || newLocationName) ? { color: theme.colors.text } : null]}>
+                      {newLocationName ? newLocationName : (selectedLocationId ? locations.find(l => l.id === selectedLocationId)?.name : 'Select Location')}
+                    </Text>
+                    <ChevronDown size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
-                ) : null
-              )}
-            />
-          </View>
+                </View>
+
+                <View style={styles.footer}>
+                  <TouchableOpacity 
+                    style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
+                    onPress={handleSaveEntity}
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.submitText}>{editingEntity ? 'Save Changes' : `Save ${activeTab}`}</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={() => {
+                      setShowAddModal(false);
+                      resetForm();
+                    }}
+                  >
+                    <Text style={styles.cancelText}>Discard</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+            <Toast />
+            {/* Searchable Location Modal - Now a View for better compatibility */}
+            {showLocationModal && (
+              <View style={styles.innerModalOverlay}>
+                <View style={styles.innerModalContent}>
+                  <View style={styles.innerModalHeader}>
+                    <Text style={styles.innerModalTitle}>Select Location</Text>
+                    <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+                      <X size={20} color={theme.colors.text} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.modalSearch}>
+                    <Search size={18} color={theme.colors.textSecondary} />
+                    <TextInput 
+                      placeholder="Search or add new..." 
+                      style={styles.modalSearchInput}
+                      value={locSearchQuery}
+                      onChangeText={setLocSearchQuery}
+                      autoFocus={Platform.OS === 'android'}
+                    />
+                  </View>
+
+                  <FlatList
+                    data={filteredLocations}
+                    keyExtractor={(item) => item.id.toString()}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity 
+                        style={styles.selectItem}
+                        onPress={() => {
+                          setSelectedLocationId(item.id);
+                          setNewLocationName('');
+                          setShowLocationModal(false);
+                        }}
+                      >
+                        <Text style={styles.selectItemText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={() => (
+                      locSearchQuery.length > 0 ? (
+                        <TouchableOpacity 
+                          style={styles.addNewItem}
+                          onPress={() => {
+                            setNewLocationName(locSearchQuery);
+                            setSelectedLocationId(null);
+                            setShowLocationModal(false);
+                          }}
+                        >
+                          <Plus size={18} color={theme.colors.primary} />
+                          <Text style={styles.addNewItemText}>Add "{locSearchQuery}" as new location</Text>
+                        </TouchableOpacity>
+                      ) : null
+                    )}
+                  />
+                </View>
+              </View>
+            )}
+          </SafeAreaView>
         </View>
-      </Modal>
+      )}
+
     </SafeAreaView>
   );
 };
@@ -462,6 +481,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  mainModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.background,
+    zIndex: 900,
+  },
   fullScreenForm: {
     flex: 1,
     padding: theme.spacing.lg,
@@ -560,11 +584,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   innerModalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
+    zIndex: 1000,
   },
   innerModalContent: {
     width: '100%',

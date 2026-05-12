@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, BackHandler } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
@@ -31,6 +31,32 @@ const ProductsScreen = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
 
   const commonUnits = ['pcs', 'kg', 'meter'];
+
+  useEffect(() => {
+    const backAction = () => {
+      if (showCategoryModal) {
+        setShowCategoryModal(false);
+        return true;
+      }
+      if (showFilterModal) {
+        setShowFilterModal(false);
+        return true;
+      }
+      if (showAddModal) {
+        setShowAddModal(false);
+        resetForm();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [showCategoryModal, showFilterModal, showAddModal]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -257,200 +283,197 @@ const ProductsScreen = () => {
         }}
       />
 
-      <Modal 
-        visible={showAddModal} 
-        animationType="slide"
-        onRequestClose={() => {
-          setShowAddModal(false);
-          resetForm();
-        }}
-      >
-        <SafeAreaView style={styles.fullScreenModal}>
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'New Product'}</Text>
-              <Text style={styles.modalSubtitle}>
-                {editingProduct ? 'Update product information' : 'Enter details to register new stock'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.closeButton} onPress={() => {
-              setShowAddModal(false);
-              resetForm();
-            }}>
-              <X size={20} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-          >
-            <ScrollView 
-              style={styles.fullScreenForm} 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 40 }}
-            >
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Product Name *</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="e.g. Velvet Armchair"
-                  value={newName}
-                  onChangeText={setNewName}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
+      {/* Add/Edit Product Modal - Now a View for better compatibility */}
+      {showAddModal && (
+        <View style={styles.mainModalOverlay}>
+          <SafeAreaView style={styles.fullScreenModal}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'New Product'}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {editingProduct ? 'Update product information' : 'Enter details to register new stock'}
+                </Text>
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Unit</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="e.g. Pcs"
-                  value={newUnit}
-                  onChangeText={setNewUnit}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitChips}>
-                  {commonUnits.map(unit => (
-                    <TouchableOpacity 
-                      key={unit} 
-                      style={[styles.chip, newUnit === unit && styles.activeChip]}
-                      onPress={() => setNewUnit(unit)}
-                    >
-                      <Text style={[styles.chipText, newUnit === unit && styles.activeChipText]}>{unit}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Initial Stock *</Text>
-                  <TextInput 
-                    style={styles.input}
-                    placeholder="0"
-                    keyboardType="numeric"
-                    value={newQuantity}
-                    onChangeText={setNewQuantity}
-                    placeholderTextColor={theme.colors.textSecondary}
-                  />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Base Price *</Text>
-                  <TextInput 
-                    style={styles.input}
-                    placeholder="0.00"
-                    keyboardType="numeric"
-                    value={newPrice}
-                    onChangeText={setNewPrice}
-                    placeholderTextColor={theme.colors.textSecondary}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Category *</Text>
-                <TouchableOpacity 
-                  style={styles.picker} 
-                  onPress={() => {
-                    setCatSearchQuery('');
-                    setShowCategoryModal(true);
-                  }}
-                >
-                  <Text style={[styles.pickerText, (selectedCategoryId || newCategoryName) ? { color: theme.colors.text } : null]}>
-                    {newCategoryName ? newCategoryName : (selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : 'Select Category')}
-                  </Text>
-                  <ChevronDown size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.footer}>
-                <TouchableOpacity 
-                  style={[styles.submitButton, submitting && styles.disabledButton]} 
-                  onPress={handleAddProduct}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.submitText}>{editingProduct ? 'Save Changes' : 'Add Product'}</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.cancelButton} 
-                  onPress={() => {
-                    setShowAddModal(false);
-                    resetForm();
-                  }}
-                >
-                  <Text style={styles.cancelText}>Discard</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-          <Toast />
-        </SafeAreaView>
-      </Modal>
-
-      {/* Searchable Category Modal */}
-      <Modal visible={showCategoryModal} animationType="fade" transparent>
-        <View style={styles.innerModalOverlay}>
-          <View style={styles.innerModalContent}>
-            <View style={styles.innerModalHeader}>
-              <Text style={styles.innerModalTitle}>Select Category</Text>
-              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => {
+                setShowAddModal(false);
+                resetForm();
+              }}>
                 <X size={20} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalSearch}>
-              <Search size={18} color={theme.colors.textSecondary} />
-              <TextInput 
-                placeholder="Search or add new..." 
-                style={styles.modalSearchInput}
-                value={catSearchQuery}
-                onChangeText={setCatSearchQuery}
-              />
-            </View>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
+              <ScrollView 
+                style={styles.fullScreenForm} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+              >
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Product Name *</Text>
+                  <TextInput 
+                    style={styles.input}
+                    placeholder="e.g. Velvet Armchair"
+                    value={newName}
+                    onChangeText={setNewName}
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                </View>
 
-            <FlatList
-              data={filteredCategories}
-              keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.selectItem}
-                  onPress={() => {
-                    setSelectedCategoryId(item.id);
-                    setNewCategoryName('');
-                    setShowCategoryModal(false);
-                  }}
-                >
-                  <Text style={styles.selectItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={() => (
-                catSearchQuery.length > 0 ? (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Unit</Text>
+                  <TextInput 
+                    style={styles.input}
+                    placeholder="e.g. Pcs"
+                    value={newUnit}
+                    onChangeText={setNewUnit}
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitChips}>
+                    {commonUnits.map(unit => (
+                      <TouchableOpacity 
+                        key={unit} 
+                        style={[styles.chip, newUnit === unit && styles.activeChip]}
+                        onPress={() => setNewUnit(unit)}
+                      >
+                        <Text style={[styles.chipText, newUnit === unit && styles.activeChipText]}>{unit}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.row}>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Initial Stock *</Text>
+                    <TextInput 
+                      style={styles.input}
+                      placeholder="0"
+                      keyboardType="numeric"
+                      value={newQuantity}
+                      onChangeText={setNewQuantity}
+                      placeholderTextColor={theme.colors.textSecondary}
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Base Price *</Text>
+                    <TextInput 
+                      style={styles.input}
+                      placeholder="0.00"
+                      keyboardType="numeric"
+                      value={newPrice}
+                      onChangeText={setNewPrice}
+                      placeholderTextColor={theme.colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Category *</Text>
                   <TouchableOpacity 
-                    style={styles.addNewItem}
+                    style={styles.picker} 
                     onPress={() => {
-                      setNewCategoryName(catSearchQuery);
-                      setSelectedCategoryId(null);
-                      setShowCategoryModal(false);
+                      setCatSearchQuery('');
+                      setShowCategoryModal(true);
                     }}
                   >
-                    <Plus size={18} color={theme.colors.primary} />
-                    <Text style={styles.addNewItemText}>Add "{catSearchQuery}" as new category</Text>
+                    <Text style={[styles.pickerText, (selectedCategoryId || newCategoryName) ? { color: theme.colors.text } : null]}>
+                      {newCategoryName ? newCategoryName : (selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : 'Select Category')}
+                    </Text>
+                    <ChevronDown size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
-                ) : null
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+                </View>
 
-      {/* Dropdown Filter Modal */}
-      <Modal visible={showFilterModal} animationType="fade" transparent>
+                <View style={styles.footer}>
+                  <TouchableOpacity 
+                    style={[styles.submitButton, submitting && styles.disabledButton]} 
+                    onPress={handleAddProduct}
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.submitText}>{editingProduct ? 'Save Changes' : 'Add Product'}</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={() => {
+                      setShowAddModal(false);
+                      resetForm();
+                    }}
+                  >
+                    <Text style={styles.cancelText}>Discard</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+            <Toast />
+            {/* Searchable Category Modal - Now a View for better compatibility */}
+            {showCategoryModal && (
+              <View style={styles.innerModalOverlay}>
+                <View style={styles.innerModalContent}>
+                  <View style={styles.innerModalHeader}>
+                    <Text style={styles.innerModalTitle}>Select Category</Text>
+                    <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                      <X size={20} color={theme.colors.text} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.modalSearch}>
+                    <Search size={18} color={theme.colors.textSecondary} />
+                    <TextInput 
+                      placeholder="Search or add new..." 
+                      style={styles.modalSearchInput}
+                      value={catSearchQuery}
+                      onChangeText={setCatSearchQuery}
+                      autoFocus={Platform.OS === 'android'}
+                    />
+                  </View>
+
+                  <FlatList
+                    data={filteredCategories}
+                    keyExtractor={(item) => item.id.toString()}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity 
+                        style={styles.selectItem}
+                        onPress={() => {
+                          setSelectedCategoryId(item.id);
+                          setNewCategoryName('');
+                          setShowCategoryModal(false);
+                        }}
+                      >
+                        <Text style={styles.selectItemText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={() => (
+                      catSearchQuery.length > 0 ? (
+                        <TouchableOpacity 
+                          style={styles.addNewItem}
+                          onPress={() => {
+                            setNewCategoryName(catSearchQuery);
+                            setSelectedCategoryId(null);
+                            setShowCategoryModal(false);
+                          }}
+                        >
+                          <Plus size={18} color={theme.colors.primary} />
+                          <Text style={styles.addNewItemText}>Add "{catSearchQuery}" as new category</Text>
+                        </TouchableOpacity>
+                      ) : null
+                    )}
+                  />
+                </View>
+              </View>
+            )}
+          </SafeAreaView>
+        </View>
+      )}
+
+
+      {/* Dropdown Filter Modal - Now a View for better compatibility */}
+      {showFilterModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.dropdownModalContent}>
             <View style={styles.modalHeader}>
@@ -490,7 +513,7 @@ const ProductsScreen = () => {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      )}
 
     </SafeAreaView>
   );
@@ -568,10 +591,16 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   modalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     padding: theme.spacing.lg,
+    zIndex: 1000,
+  },
+  mainModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.background,
+    zIndex: 900,
   },
   dropdownModalContent: {
     backgroundColor: theme.colors.background,
@@ -713,11 +742,12 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   innerModalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
+    zIndex: 1000,
   },
   innerModalContent: {
     width: '100%',

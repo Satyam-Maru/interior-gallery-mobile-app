@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Animated, BackHandler } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
@@ -40,6 +40,31 @@ const HistoryScreen = () => {
   useEffect(() => {
     fetchData();
   }, [activeFilter, selectedProductId, selectedEntityId]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (showFilterModal) {
+        setShowFilterModal(false);
+        // Reset temp state
+        setTempFilter(activeFilter);
+        setTempProductId(selectedProductId);
+        setTempEntityId(selectedEntityId);
+        return true;
+      }
+      if (selectedEntry) {
+        setSelectedEntry(null);
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [showFilterModal, selectedEntry, activeFilter, selectedProductId, selectedEntityId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -332,18 +357,8 @@ const HistoryScreen = () => {
         </View>
       </Modal>
 
-      {/* Flipkart-style Sidebar Filter Modal */}
-      <Modal 
-        visible={showFilterModal} 
-        animationType="slide" 
-        transparent
-        onRequestClose={() => {
-          setShowFilterModal(false);
-          setTempFilter(activeFilter);
-          setTempProductId(selectedProductId);
-          setTempEntityId(selectedEntityId);
-        }}
-      >
+      {/* Flipkart-style Sidebar Filter Modal - Now a View for better compatibility */}
+      {showFilterModal && (
         <View style={styles.filterModalOverlay}>
           <View style={styles.filterModalContent}>
             {/* Modal Header */}
@@ -439,6 +454,7 @@ const HistoryScreen = () => {
                         style={styles.modalSearchInputMini}
                         value={productSearch}
                         onChangeText={setProductSearch}
+                        autoFocus={Platform.OS === 'android'}
                       />
                     </View>
                     <FlatList
@@ -469,6 +485,7 @@ const HistoryScreen = () => {
                         style={styles.modalSearchInputMini}
                         value={partySearch}
                         onChangeText={setPartySearch}
+                        autoFocus={Platform.OS === 'android'}
                       />
                     </View>
                     <FlatList
@@ -513,9 +530,8 @@ const HistoryScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-          <Toast />
         </View>
-      </Modal>
+      )}
 
       {showPicker.show && (
         <DateTimePicker
@@ -589,9 +605,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   filterModalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
+    zIndex: 1000,
   },
   filterModalContent: {
     backgroundColor: theme.colors.background,

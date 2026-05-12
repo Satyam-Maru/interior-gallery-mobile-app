@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, FlatList, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, FlatList, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
@@ -31,6 +31,27 @@ const StockEntryScreen = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (showProductModal) {
+        setShowProductModal(false);
+        return true;
+      }
+      if (showPartyModal) {
+        setShowPartyModal(false);
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [showProductModal, showPartyModal]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -296,88 +317,93 @@ const StockEntryScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Product Selection Modal */}
-      <Modal visible={showProductModal} animationType="slide">
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Product</Text>
-            <TouchableOpacity onPress={() => setShowProductModal(false)}>
-              <X size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalSearch}>
-            <Search size={20} color={theme.colors.textSecondary} />
-            <TextInput 
-              placeholder="Search product..." 
-              style={styles.modalSearchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-          <FlatList
-            data={filteredProducts}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ paddingHorizontal: theme.spacing.lg }}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.partyItem}
-                onPress={() => {
-                  setSelectedProduct(item);
-                  setPrice(parseFloat(item.price).toString());
-                  setShowProductModal(false);
-                }}
-              >
-                <View>
-                  <Text style={styles.partyName}>{item.name}</Text>
-                  <Text style={styles.partyType}>Stock: {item.quantity}</Text>
-                </View>
+      {/* Product Selection Modal - Now a View for better compatibility */}
+      {showProductModal && (
+        <View style={styles.innerModalOverlay}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Product</Text>
+              <TouchableOpacity onPress={() => setShowProductModal(false)}>
+                <X size={24} color={theme.colors.text} />
               </TouchableOpacity>
-            )}
-          />
-          <Toast />
-        </SafeAreaView>
-      </Modal>
+            </View>
+            <View style={styles.modalSearch}>
+              <Search size={20} color={theme.colors.textSecondary} />
+              <TextInput 
+                placeholder="Search product..." 
+                style={styles.modalSearchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={Platform.OS === 'android'}
+              />
+            </View>
+            <FlatList
+              data={filteredProducts}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={{ paddingHorizontal: theme.spacing.lg }}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.partyItem}
+                  onPress={() => {
+                    setSelectedProduct(item);
+                    setPrice(parseFloat(item.price).toString());
+                    setShowProductModal(false);
+                  }}
+                >
+                  <View>
+                    <Text style={styles.partyName}>{item.name}</Text>
+                    <Text style={styles.partyType}>Stock: {item.quantity}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </SafeAreaView>
+        </View>
+      )}
 
-      {/* Party Selection Modal */}
-      <Modal visible={showPartyModal} animationType="slide">
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Party</Text>
-            <TouchableOpacity onPress={() => setShowPartyModal(false)}>
-              <X size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalSearch}>
-            <Search size={20} color={theme.colors.textSecondary} />
-            <TextInput 
-              placeholder="Search by name..." 
-              style={styles.modalSearchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-          <FlatList
-            data={filteredParties}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ paddingHorizontal: theme.spacing.lg }}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.partyItem}
-                onPress={() => {
-                  setSelectedParty(item);
-                  setShowPartyModal(false);
-                }}
-              >
-                <View>
-                  <Text style={styles.partyName}>{item.name}</Text>
-                  <Text style={styles.partyType}>{item.type}</Text>
-                </View>
+      {/* Party Selection Modal - Now a View for better compatibility */}
+      {showPartyModal && (
+        <View style={styles.innerModalOverlay}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Party</Text>
+              <TouchableOpacity onPress={() => setShowPartyModal(false)}>
+                <X size={24} color={theme.colors.text} />
               </TouchableOpacity>
-            )}
-          />
-          <Toast />
-        </SafeAreaView>
-      </Modal>
+            </View>
+            <View style={styles.modalSearch}>
+              <Search size={20} color={theme.colors.textSecondary} />
+              <TextInput 
+                placeholder="Search by name..." 
+                style={styles.modalSearchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={Platform.OS === 'android'}
+              />
+            </View>
+            <FlatList
+              data={filteredParties}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={{ paddingHorizontal: theme.spacing.lg }}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.partyItem}
+                  onPress={() => {
+                    setSelectedParty(item);
+                    setShowPartyModal(false);
+                  }}
+                >
+                  <View>
+                    <Text style={styles.partyName}>{item.name}</Text>
+                    <Text style={styles.partyType}>{item.type}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </SafeAreaView>
+        </View>
+      )}
+      <Toast />
     </SafeAreaView>
   );
 };
@@ -517,7 +543,11 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    paddingTop: 60,
+  },
+  innerModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.background,
+    zIndex: 1000,
   },
   modalHeader: {
     flexDirection: 'row',
