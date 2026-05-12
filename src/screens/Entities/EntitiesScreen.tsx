@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Users, Plus, Search, MapPin, X, ChevronDown, Truck } from 'lucide-react-native';
@@ -26,6 +27,12 @@ const EntitiesScreen = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      resetForm();
+    }, [])
+  );
 
   const fetchData = async () => {
     try {
@@ -182,7 +189,10 @@ const EntitiesScreen = () => {
               <Text style={styles.modalTitle}>New {activeTab}</Text>
               <Text style={styles.modalSubtitle}>Register a new {activeTab} in the system</Text>
             </View>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => {
+              setShowAddModal(false);
+              resetForm();
+            }}>
               <X size={20} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
@@ -237,7 +247,10 @@ const EntitiesScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.cancelButton} 
-                  onPress={() => setShowAddModal(false)}
+                  onPress={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                 >
                   <Text style={styles.cancelText}>Discard</Text>
                 </TouchableOpacity>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Search, Plus, Filter, X, ChevronDown, AlertCircle } from 'lucide-react-native';
@@ -20,6 +21,7 @@ const ProductsScreen = () => {
   const [newQuantity, setNewQuantity] = useState('0');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   
   // UI State
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -28,11 +30,17 @@ const ProductsScreen = () => {
   const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
 
-  const commonUnits = ['Pcs', 'Box', 'Kg', 'Mtr', 'Sqft', 'Set'];
+  const commonUnits = ['pcs', 'kg', 'meter'];
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      resetForm();
+    }, [])
+  );
 
   const fetchData = async () => {
     try {
@@ -53,6 +61,17 @@ const ProductsScreen = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setNewName(product.name);
+    setNewUnit(product.unit || '');
+    setNewPrice(product.price.toString());
+    setNewQuantity(product.quantity.toString());
+    setSelectedCategoryId(product.category_id);
+    setNewCategoryName('');
+    setShowAddModal(true);
   };
 
   const handleAddProduct = async () => {
@@ -98,46 +117,45 @@ const ProductsScreen = () => {
     try {
       setSubmitting(true);
       
-      let categoryId = selectedCategoryId;
-      
-      // Handle "on the go" category creation
-      if (newCategoryName.trim()) {
+      let finalCategoryId = selectedCategoryId;
+      if (!finalCategoryId && newCategoryName.trim()) {
         const catRes = await CategoryService.createCategory({ name: newCategoryName.trim() });
-        categoryId = catRes.data.id;
+        finalCategoryId = catRes.data.id;
       }
 
-      if (!categoryId) {
-        Toast.show({
-          type: 'error',
-          text1: 'Category Error',
-          text2: 'Failed to resolve category',
-        });
-        return;
-      }
-
-      await ProductService.createProduct({
+      const productData = {
         name: newName.trim(),
-        unit: newUnit.trim(),
+        unit: newUnit.trim() || undefined,
         price: priceNum,
         quantity: qtyNum,
-        category_id: categoryId,
-      });
+        category_id: finalCategoryId!,
+      };
 
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Product added successfully',
-      });
+      if (editingProduct) {
+        await ProductService.updateProduct(editingProduct.id, productData);
+        Toast.show({
+          type: 'success',
+          text1: 'Product Updated',
+          text2: `${newName} has been updated`,
+        });
+      } else {
+        await ProductService.createProduct(productData);
+        Toast.show({
+          type: 'success',
+          text1: 'Product Added',
+          text2: `${newName} added to inventory`,
+        });
+      }
       
-      setShowAddModal(false);
       resetForm();
+      setShowAddModal(false);
       fetchData();
-    } catch (error) {
-      console.error('Create error:', error);
+    } catch (error: any) {
+      console.error('Submit error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Save Failed',
-        text2: 'Could not add product to database',
+        text1: editingProduct ? 'Update Failed' : 'Save Failed',
+        text2: error.response?.data?.error || 'Operation failed',
       });
     } finally {
       setSubmitting(false);
@@ -151,6 +169,7 @@ const ProductsScreen = () => {
     setNewQuantity('0');
     setSelectedCategoryId(null);
     setNewCategoryName('');
+    setEditingProduct(null);
   };
 
   const filteredCategories = categories.filter(c => 
@@ -217,7 +236,10 @@ const ProductsScreen = () => {
         renderItem={({ item }) => {
           const isLowStock = parseFloat(item.quantity) < 5;
           return (
-            <View style={[styles.productCard, isLowStock && styles.lowStockCard]}>
+            <TouchableOpacity 
+              style={[styles.productCard, isLowStock && styles.lowStockCard]}
+              onPress={() => handleEditProduct(item)}
+            >
               <View style={styles.productInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.productName}>{item.name}</Text>
@@ -233,7 +255,7 @@ const ProductsScreen = () => {
                 </Text>
                 <Text style={styles.price}>₹{parseFloat(item.price).toLocaleString()}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
@@ -242,10 +264,15 @@ const ProductsScreen = () => {
         <SafeAreaView style={styles.fullScreenModal}>
           <View style={styles.modalHeader}>
             <View>
-              <Text style={styles.modalTitle}>New Product</Text>
-              <Text style={styles.modalSubtitle}>Enter details to register new stock</Text>
+              <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'New Product'}</Text>
+              <Text style={styles.modalSubtitle}>
+                {editingProduct ? 'Update product information' : 'Enter details to register new stock'}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => {
+              setShowAddModal(false);
+              resetForm();
+            }}>
               <X size={20} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
@@ -335,19 +362,22 @@ const ProductsScreen = () => {
 
               <View style={styles.footer}>
                 <TouchableOpacity 
-                  style={[styles.submitButton, submitting ? { opacity: 0.7 } : null]} 
+                  style={[styles.submitButton, submitting && styles.disabledButton]} 
                   onPress={handleAddProduct}
                   disabled={submitting}
                 >
                   {submitting ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.submitText}>Save Product</Text>
+                    <Text style={styles.submitText}>{editingProduct ? 'Save Changes' : 'Add Product'}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.cancelButton} 
-                  onPress={() => setShowAddModal(false)}
+                  onPress={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                 >
                   <Text style={styles.cancelText}>Discard</Text>
                 </TouchableOpacity>

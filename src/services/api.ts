@@ -11,7 +11,7 @@ const api = axios.create({
 });
 
 export const StockService = {
-  getHistory: (params?: { startDate?: string; endDate?: string }) => 
+  getHistory: (params?: { startDate?: string; endDate?: string; productId?: number; entityId?: number }) => 
     api.get('/stock', { params }),
   createStock: (data: {
     type: 'purchase' | 'sell';
@@ -32,6 +32,13 @@ export const ProductService = {
     quantity: number;
     category_id: number;
   }) => api.post('/products', data),
+  updateProduct: (id: number, data: {
+    name?: string;
+    unit?: string;
+    price?: number;
+    quantity?: number;
+    category_id?: number;
+  }) => api.put(`/products/${id}`, data),
 };
 
 export const EntityService = {
