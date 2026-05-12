@@ -831,6 +831,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: theme.spacing.sm,
   },
+  disabledButton: {
+    opacity: 0.7,
+  },
   submitText: {
     color: '#FFF',
     fontWeight: '700',
