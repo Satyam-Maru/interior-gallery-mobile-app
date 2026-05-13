@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { theme } from './src/theme';
 import { LayoutDashboard, Package, ArrowLeftRight, History as HistoryIcon, Users } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
+import { LanguageProvider } from './src/context/LanguageContext';
 
 // Screens
 import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
@@ -115,42 +116,44 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <View style={styles.container} onLayout={onLayoutRootView}>
-        <StatusBar style="dark" />
-        <NavigationContainer theme={{
-          ...DefaultTheme,
-          colors: {
-            ...DefaultTheme.colors,
-            primary: theme.colors.primary,
-            background: theme.colors.background,
-            card: theme.colors.background,
-            text: theme.colors.text,
-            border: theme.colors.border,
-            notification: theme.colors.accent,
-          }
-        }}>
-          <MainTabs />
-        </NavigationContainer>
+    <LanguageProvider>
+      <SafeAreaProvider>
+        <View style={styles.container} onLayout={onLayoutRootView}>
+          <StatusBar style="dark" />
+          <NavigationContainer theme={{
+            ...DefaultTheme,
+            colors: {
+              ...DefaultTheme.colors,
+              primary: theme.colors.primary,
+              background: theme.colors.background,
+              card: theme.colors.background,
+              text: theme.colors.text,
+              border: theme.colors.border,
+              notification: theme.colors.accent,
+            }
+          }}>
+            <MainTabs />
+          </NavigationContainer>
 
-        {splashVisible && (
-          <Animated.View 
-            style={[
-              styles.splashOverlay, 
-              { opacity: fadeAnim }
-            ]}
-          >
-            <Image 
-              source={require('./assets/Logo.jpeg')} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.loadingText}>Loading Premium Experience...</Text>
-          </Animated.View>
-        )}
-        <Toast />
-      </View>
-    </SafeAreaProvider>
+          {splashVisible && (
+            <Animated.View 
+              style={[
+                styles.splashOverlay, 
+                { opacity: fadeAnim }
+              ]}
+            >
+              <Image 
+                source={require('./assets/Logo.jpeg')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.loadingText}>Loading Premium Experience...</Text>
+            </Animated.View>
+          )}
+          <Toast />
+        </View>
+      </SafeAreaProvider>
+    </LanguageProvider>
   );
 }
 

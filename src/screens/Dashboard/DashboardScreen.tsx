@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
@@ -7,10 +7,12 @@ import { Package, ArrowUpRight, ArrowDownLeft, History } from 'lucide-react-nati
 import { DashboardService } from '../../services/api';
 import LineChart from 'react-native-chart-kit/dist/line-chart';
 import PieChart from 'react-native-chart-kit/dist/PieChart';
+import { useLanguage } from '../../context/LanguageContext';
+import { getFormattedDate, toGujaratiNumerals } from '../../i18n/translations';
 
 const screenWidth = Dimensions.get('window').width;
 
-const StatCard = ({ title, value, icon: Icon, color, isCurrency }: any) => (
+const StatCard = ({ title, value, icon: Icon, color, isCurrency, lang }: any) => (
   <View style={styles.statCard}>
     <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
       <Icon size={24} color={color} />
@@ -18,13 +20,16 @@ const StatCard = ({ title, value, icon: Icon, color, isCurrency }: any) => (
     <View style={{ flex: 1 }}>
       <Text style={styles.statTitle}>{title}</Text>
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
-        {isCurrency ? `₹${value}` : value}
+        {isCurrency
+          ? `₹${lang === 'gu' ? toGujaratiNumerals(value) : value}`
+          : (lang === 'gu' ? toGujaratiNumerals(value) : value)}
       </Text>
     </View>
   </View>
 );
 
 const DashboardScreen = () => {
+  const { language, t, setLanguage } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     totalStock: 0,
@@ -53,13 +58,6 @@ const DashboardScreen = () => {
     }, [])
   );
 
-  const getCurrentDate = () => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const now = new Date();
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  };
-
   const chartConfig = {
     backgroundColor: '#ffffff',
     backgroundGradientFrom: '#ffffff',
@@ -67,9 +65,7 @@ const DashboardScreen = () => {
     decimalPlaces: 0,
     color: (opacity = 1) => `rgba(13, 110, 253, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(108, 117, 125, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
+    style: { borderRadius: 16 },
     propsForDots: {
       r: '4',
       strokeWidth: '2',
@@ -78,20 +74,22 @@ const DashboardScreen = () => {
   };
 
   const trendData = {
-    labels: stats.dailyTrend.map((d: any) => d.date.split('-')[2]), // Just days
+    labels: stats.dailyTrend.map((d: any) =>
+      language === 'gu' ? toGujaratiNumerals(d.date.split('-')[2]) : d.date.split('-')[2]
+    ),
     datasets: [
       {
         data: stats.dailyTrend.map((d: any) => d.sales),
-        color: (opacity = 1) => `rgba(40, 167, 69, ${opacity})`, // Success/Sales
+        color: (opacity = 1) => `rgba(40, 167, 69, ${opacity})`,
         strokeWidth: 2
       },
       {
         data: stats.dailyTrend.map((d: any) => d.purchases),
-        color: (opacity = 1) => `rgba(220, 53, 69, ${opacity})`, // Error/Purchases
+        color: (opacity = 1) => `rgba(220, 53, 69, ${opacity})`,
         strokeWidth: 2
       }
     ],
-    legend: ['Sales', 'Purchases']
+    legend: [t.sales, t.purchases]
   };
 
   const pieData = stats.categoryDistribution.map((cat: any, index: number) => {
@@ -107,48 +105,76 @@ const DashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={fetchData} colors={[theme.colors.primary]} />
         }
       >
+        {/* Header with language toggle */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Overview</Text>
-          <Text style={styles.date}>{getCurrentDate()}</Text>
+          <View>
+            <Text style={styles.greeting}>{t.overview}</Text>
+            <Text style={styles.date}>{getFormattedDate(language)}</Text>
+          </View>
+          {/* Language pill toggle */}
+          <View style={styles.langToggle}>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'en' && styles.langOptionActive]}
+              onPress={() => setLanguage('en')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.langOptionText, language === 'en' && styles.langOptionTextActive]}>
+                EN
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'gu' && styles.langOptionActive]}
+              onPress={() => setLanguage('gu')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.langOptionText, language === 'gu' && styles.langOptionTextActive]}>
+                ગુ
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.statsGrid}>
-          <StatCard 
-            title="Total Stock" 
-            value={stats.totalStock.toLocaleString()} 
-            icon={Package} 
-            color={theme.colors.primary} 
+          <StatCard
+            title={t.totalStock}
+            value={stats.totalStock.toLocaleString()}
+            icon={Package}
+            color={theme.colors.primary}
+            lang={language}
           />
-          <StatCard 
-            title="Total History" 
-            value={stats.historyCount.toLocaleString()} 
-            icon={History} 
-            color={theme.colors.textSecondary} 
+          <StatCard
+            title={t.totalHistory}
+            value={stats.historyCount.toLocaleString()}
+            icon={History}
+            color={theme.colors.textSecondary}
+            lang={language}
           />
-          <StatCard 
-            title="Purchases" 
-            value={stats.totalPurchases.toLocaleString()} 
-            icon={ArrowDownLeft} 
+          <StatCard
+            title={t.purchases}
+            value={stats.totalPurchases.toLocaleString()}
+            icon={ArrowDownLeft}
             color={theme.colors.error}
             isCurrency
+            lang={language}
           />
-          <StatCard 
-            title="Sales" 
-            value={stats.totalSales.toLocaleString()} 
-            icon={ArrowUpRight} 
+          <StatCard
+            title={t.sales}
+            value={stats.totalSales.toLocaleString()}
+            icon={ArrowUpRight}
             color={theme.colors.success}
             isCurrency
+            lang={language}
           />
         </View>
 
         <View style={styles.chartSection}>
-          <Text style={styles.chartTitle}>Last 7 Days Trend</Text>
+          <Text style={styles.chartTitle}>{t.last7DaysTrend}</Text>
           {stats.dailyTrend.length > 0 ? (
             <LineChart
               data={trendData}
@@ -164,7 +190,7 @@ const DashboardScreen = () => {
         </View>
 
         <View style={styles.chartSection}>
-          <Text style={styles.chartTitle}>Stock by Category</Text>
+          <Text style={styles.chartTitle}>{t.stockByCategory}</Text>
           {stats.categoryDistribution.length > 0 ? (
             <View style={styles.pieContainer}>
               <PieChart
@@ -183,20 +209,22 @@ const DashboardScreen = () => {
                   <View key={index} style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: item.color }]} />
                     <Text style={styles.legendText}>{item.name}</Text>
-                    <Text style={styles.legendValue}>({item.population})</Text>
+                    <Text style={styles.legendValue}>
+                      ({language === 'gu' ? toGujaratiNumerals(item.population) : item.population})
+                    </Text>
                   </View>
                 ))}
               </View>
             </View>
           ) : (
-            <Text style={styles.emptyText}>No category data available</Text>
+            <Text style={styles.emptyText}>{t.noCategoryData}</Text>
           )}
         </View>
 
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={theme.colors.primary} />
-            <Text style={styles.loadingText}>Updating statistics...</Text>
+            <Text style={styles.loadingText}>{t.updatingStatistics}</Text>
           </View>
         )}
       </ScrollView>
@@ -213,6 +241,9 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: theme.spacing.xl,
   },
   greeting: {
@@ -224,6 +255,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+  // ── Language toggle ──────────────────────────────────────
+  langToggle: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 3,
+    gap: 2,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  langOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  langOptionActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  langOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  langOptionTextActive: {
+    color: '#FFF',
+  },
+  // ── Stats ────────────────────────────────────────────────
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

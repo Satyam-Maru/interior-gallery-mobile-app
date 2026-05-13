@@ -6,8 +6,10 @@ import { theme } from '../../theme';
 import { ArrowUpRight, ArrowDownLeft, ChevronDown, Search, X, Percent } from 'lucide-react-native';
 import { StockService, ProductService, EntityService } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import { useLanguage } from '../../context/LanguageContext';
 
 const StockEntryScreen = () => {
+  const { t } = useLanguage();
   const [type, setType] = useState<'purchase' | 'sell'>('purchase');
   const [products, setProducts] = useState<any[]>([]);
   const [parties, setParties] = useState<any[]>([]);
@@ -189,7 +191,7 @@ const StockEntryScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Stock Entry</Text>
+        <Text style={styles.title}>{t.stockEntry}</Text>
         
         <View style={styles.typeToggle}>
           <TouchableOpacity 
@@ -197,7 +199,7 @@ const StockEntryScreen = () => {
             onPress={() => setType('purchase')}
           >
             <ArrowDownLeft size={20} color={type === 'purchase' ? '#FFF' : theme.colors.textSecondary} />
-            <Text style={[styles.typeText, type === 'purchase' && styles.activeTypeText]}>Purchase</Text>
+            <Text style={[styles.typeText, type === 'purchase' && styles.activeTypeText]}>{t.purchase}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -205,13 +207,13 @@ const StockEntryScreen = () => {
             onPress={() => setType('sell')}
           >
             <ArrowUpRight size={20} color={type === 'sell' ? '#FFF' : theme.colors.textSecondary} />
-            <Text style={[styles.typeText, type === 'sell' && styles.activeTypeText]}>Sell</Text>
+            <Text style={[styles.typeText, type === 'sell' && styles.activeTypeText]}>{t.sell}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Product *</Text>
+            <Text style={styles.label}>{t.product}</Text>
             <TouchableOpacity 
               style={styles.picker} 
               onPress={() => {
@@ -220,14 +222,14 @@ const StockEntryScreen = () => {
               }}
             >
               <Text style={[styles.pickerText, selectedProduct && { color: theme.colors.text }]}>
-                {selectedProduct ? selectedProduct.name : 'Select Product'}
+                {selectedProduct ? selectedProduct.name : t.selectProduct}
               </Text>
               <ChevronDown size={20} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Party (Supplier/Customer) *</Text>
+            <Text style={styles.label}>{t.partySupplierCustomer}</Text>
             <TouchableOpacity 
               style={styles.picker} 
               onPress={() => {
@@ -236,7 +238,7 @@ const StockEntryScreen = () => {
               }}
             >
               <Text style={[styles.pickerText, selectedParty && { color: theme.colors.text }]}>
-                {selectedParty ? selectedParty.name : 'Select Party'}
+                {selectedParty ? selectedParty.name : t.selectParty}
               </Text>
               <ChevronDown size={20} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -244,7 +246,7 @@ const StockEntryScreen = () => {
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Quantity *</Text>
+              <Text style={styles.label}>{t.quantity}</Text>
               <TextInput 
                 style={styles.input} 
                 placeholder="0" 
@@ -256,7 +258,7 @@ const StockEntryScreen = () => {
             </View>
             
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Price *</Text>
+              <Text style={styles.label}>{t.price}</Text>
               <TextInput 
                 style={styles.input} 
                 placeholder="0.00" 
@@ -270,7 +272,7 @@ const StockEntryScreen = () => {
 
           {type === 'sell' && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Discount (%)</Text>
+              <Text style={styles.label}>{t.discountPercent}</Text>
               <View style={styles.discountContainer}>
                 <TextInput 
                   style={[styles.input, { flex: 1 }]} 
@@ -289,7 +291,7 @@ const StockEntryScreen = () => {
 
           <View style={styles.totalContainer}>
             <View>
-              <Text style={styles.totalLabel}>Total Estimate</Text>
+              <Text style={styles.totalLabel}>{t.totalEstimate}</Text>
               <Text style={styles.totalSublabel}>
                 {quantity || '0'} × ₹{price || '0'} 
                 {type === 'sell' && discount ? ` (-${discount}%)` : ''}
@@ -312,7 +314,7 @@ const StockEntryScreen = () => {
             {submitting ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.submitText}>Confirm {type === 'purchase' ? 'Purchase' : 'Sale'}</Text>
+              <Text style={styles.submitText}>{type === 'purchase' ? t.confirmPurchase : t.confirmSale}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -323,7 +325,7 @@ const StockEntryScreen = () => {
         <View style={styles.innerModalOverlay}>
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Product</Text>
+              <Text style={styles.modalTitle}>{t.selectProduct}</Text>
               <TouchableOpacity onPress={() => setShowProductModal(false)}>
                 <X size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -331,7 +333,7 @@ const StockEntryScreen = () => {
             <View style={styles.modalSearch}>
               <Search size={20} color={theme.colors.textSecondary} />
               <TextInput 
-                placeholder="Search product..." 
+                placeholder={t.searchProduct} 
                 style={styles.modalSearchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -353,7 +355,7 @@ const StockEntryScreen = () => {
                 >
                   <View>
                     <Text style={styles.partyName}>{item.name}</Text>
-                    <Text style={styles.partyType}>Stock: {item.quantity}</Text>
+                    <Text style={styles.partyType}>{t.stock}: {item.quantity}</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -367,7 +369,7 @@ const StockEntryScreen = () => {
         <View style={styles.innerModalOverlay}>
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Party</Text>
+              <Text style={styles.modalTitle}>{t.selectParty}</Text>
               <TouchableOpacity onPress={() => setShowPartyModal(false)}>
                 <X size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -375,7 +377,7 @@ const StockEntryScreen = () => {
             <View style={styles.modalSearch}>
               <Search size={20} color={theme.colors.textSecondary} />
               <TextInput 
-                placeholder="Search by name..." 
+                placeholder={t.searchByName} 
                 style={styles.modalSearchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}

@@ -6,10 +6,12 @@ import { theme } from '../../theme';
 import { Users, Plus, Search, MapPin, X, ChevronDown, Truck, Layers, Edit2 } from 'lucide-react-native';
 import { EntityService, LocationService, CategoryService } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import { useLanguage } from '../../context/LanguageContext';
 
 type ManagementTab = 'supplier' | 'customer' | 'category' | 'location';
 
 const ManagementScreen = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<ManagementTab>('supplier');
   const [data, setData] = useState<any[]>([]);
   const [extraData, setExtraData] = useState<any[]>([]); // For locations when adding entities
@@ -26,6 +28,15 @@ const ManagementScreen = () => {
   // UI State
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locSearchQuery, setLocSearchQuery] = useState('');
+
+  const entityNames: Record<ManagementTab, string> = {
+    supplier: t.supplier,
+    customer: t.customer,
+    category: t.categories, // Using plural categories or t.category if available? Wait, t.categories is 'શ્રેણી' in GU.
+    location: t.locations   // Using plural locations or t.location if available?
+  };
+
+  const activeEntityName = entityNames[activeTab];
 
   useEffect(() => {
     const backAction = () => {
@@ -186,7 +197,7 @@ const ManagementScreen = () => {
             <View style={styles.subInfo}>
               <MapPin size={12} color={theme.colors.textSecondary} />
               <Text style={styles.subInfoText}>
-                {item.locations?.name || extraData.find(l => l.id === item.location_id)?.name || 'No location'}
+                {item.locations?.name || extraData.find(l => l.id === item.location_id)?.name || t.noLocation}
               </Text>
             </View>
           )}
@@ -203,7 +214,7 @@ const ManagementScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Management</Text>
+        <Text style={styles.title}>{t.management}</Text>
       </View>
 
       <View style={styles.tabContainer}>
@@ -224,7 +235,10 @@ const ManagementScreen = () => {
                  <MapPin size={20} color={activeTab === tab ? '#FFF' : theme.colors.primary} />}
               </View>
               <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}s
+                {tab === 'supplier' ? t.suppliers :
+                 tab === 'customer' ? t.customers :
+                 tab === 'category' ? t.categories :
+                 t.locations}
               </Text>
             </TouchableOpacity>
           ))}
@@ -235,7 +249,7 @@ const ManagementScreen = () => {
         <View style={styles.searchContainer}>
           <Search size={20} color={theme.colors.textSecondary} />
           <TextInput 
-            placeholder={`Search ${activeTab}s...`} 
+            placeholder={t.search} 
             style={styles.searchInput}
             placeholderTextColor={theme.colors.textSecondary}
             value={searchQuery}
@@ -261,7 +275,7 @@ const ManagementScreen = () => {
           renderItem={renderItem}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No {activeTab}s found</Text>
+              <Text style={styles.emptyText}>{t.noLocation}</Text>
             </View>
           )}
         />
@@ -273,9 +287,11 @@ const ManagementScreen = () => {
           <SafeAreaView style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>{editingItem ? 'Edit' : 'New'} {activeTab}</Text>
+                <Text style={styles.modalTitle}>
+                  {editingItem ? t.edit : t.new} {activeEntityName}
+                </Text>
                 <Text style={styles.modalSubtitle}>
-                  {editingItem ? `Update details for this ${activeTab}` : `Register a new ${activeTab} in the system`}
+                  {editingItem ? `${t.updateDetailsFor} ${activeEntityName}` : `${t.registerNew} ${activeEntityName}`}
                 </Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
@@ -293,10 +309,11 @@ const ManagementScreen = () => {
                 contentContainerStyle={{ paddingBottom: 40 }}
               >
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Name *</Text>
+                  <Text style={styles.label}>{t.name}</Text>
                   <TextInput 
                     style={styles.input}
-                    placeholder={`Enter ${activeTab} name`}
+                    placeholder={`${t.management}...`} // Wait, this placeholder was already translated
+
                     value={newName}
                     onChangeText={setNewName}
                     placeholderTextColor={theme.colors.textSecondary}
@@ -306,7 +323,7 @@ const ManagementScreen = () => {
 
                 {(activeTab === 'supplier' || activeTab === 'customer') && (
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Location</Text>
+                    <Text style={styles.label}>{t.location}</Text>
                     <TouchableOpacity 
                       style={styles.picker}
                       onPress={() => {
@@ -315,7 +332,7 @@ const ManagementScreen = () => {
                       }}
                     >
                       <Text style={[styles.pickerText, selectedLocationId ? { color: theme.colors.text } : null]}>
-                        {selectedLocationId ? extraData.find(l => l.id === selectedLocationId)?.name : 'Select Location'}
+                        {selectedLocationId ? extraData.find(l => l.id === selectedLocationId)?.name : t.selectLocation}
                       </Text>
                       <ChevronDown size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
@@ -331,14 +348,14 @@ const ManagementScreen = () => {
                     {submitting ? (
                       <ActivityIndicator color="#FFF" />
                     ) : (
-                      <Text style={styles.submitText}>{editingItem ? 'Save Changes' : `Save ${activeTab}`}</Text>
+                      <Text style={styles.submitText}>{editingItem ? t.saveChanges : `${t.saveItem} ${activeEntityName}`}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.cancelButton} 
                     onPress={handleCloseModal}
                   >
-                    <Text style={styles.cancelText}>Discard</Text>
+                    <Text style={styles.cancelText}>{t.discard}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -349,7 +366,7 @@ const ManagementScreen = () => {
               <View style={styles.innerModalOverlay}>
                 <View style={styles.innerModalContent}>
                   <View style={styles.innerModalHeader}>
-                    <Text style={styles.innerModalTitle}>Select Location</Text>
+                    <Text style={styles.innerModalTitle}>{t.selectLocation}</Text>
                     <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
                       <X size={20} color={theme.colors.text} />
                     </TouchableOpacity>
@@ -358,7 +375,7 @@ const ManagementScreen = () => {
                   <View style={styles.modalSearch}>
                     <Search size={18} color={theme.colors.textSecondary} />
                     <TextInput 
-                      placeholder="Search locations..." 
+                      placeholder={t.searchLocations} 
                       style={styles.modalSearchInput}
                       value={locSearchQuery}
                       onChangeText={setLocSearchQuery}
@@ -382,7 +399,7 @@ const ManagementScreen = () => {
                     )}
                     ListEmptyComponent={() => (
                       <View style={{ padding: 20, alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.textSecondary }}>No locations found</Text>
+                        <Text style={{ color: theme.colors.textSecondary }}>{t.noLocationsFound}</Text>
                       </View>
                     )}
                   />

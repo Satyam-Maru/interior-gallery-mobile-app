@@ -6,8 +6,10 @@ import { theme } from '../../theme';
 import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2 } from 'lucide-react-native';
 import { ProductService, CategoryService } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import { useLanguage } from '../../context/LanguageContext';
 
 const ProductsScreen = () => {
+  const { language, t } = useLanguage();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,7 +218,7 @@ const ProductsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Inventory</Text>
+        <Text style={styles.title}>{t.inventory}</Text>
         <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
           <Plus size={20} color="#FFF" />
         </TouchableOpacity>
@@ -226,7 +228,7 @@ const ProductsScreen = () => {
         <View style={styles.searchBar}>
           <Search size={20} color={theme.colors.textSecondary} />
           <TextInput 
-            placeholder="Search products..." 
+            placeholder={t.searchProducts} 
             style={styles.searchInput}
             placeholderTextColor={theme.colors.textSecondary}
             value={mainSearchQuery}
@@ -244,7 +246,7 @@ const ProductsScreen = () => {
         >
           <Filter size={18} color={filterCategoryId !== null ? '#FFF' : theme.colors.primary} />
           <Text style={[styles.dropdownText, filterCategoryId !== null && styles.activeDropdownText]}>
-            {filterCategoryId === null ? 'Category' : categories.find(c => c.id === filterCategoryId)?.name}
+            {filterCategoryId === null ? t.category : categories.find(c => c.id === filterCategoryId)?.name}
           </Text>
           <ChevronDown size={16} color={filterCategoryId !== null ? '#FFF' : theme.colors.textSecondary} />
         </TouchableOpacity>
@@ -270,12 +272,12 @@ const ProductsScreen = () => {
                     {isLowStock && <AlertCircle size={16} color={theme.colors.error} style={{ marginLeft: 6 }} />}
                   </View>
                   <Text style={styles.productCategory}>
-                    {categories.find(c => c.id === item.category_id)?.name || 'Uncategorized'}
+                    {categories.find(c => c.id === item.category_id)?.name || t.uncategorized}
                   </Text>
                 </View>
                 <View style={styles.stockInfo}>
                   <Text style={[styles.stockCount, isLowStock && styles.lowStockText]}>
-                    {item.quantity} {item.unit || 'units'}
+                    {item.quantity} {item.unit || t.units}
                   </Text>
                   <Text style={styles.price}>₹{parseFloat(item.price).toLocaleString()}</Text>
                 </View>
@@ -296,9 +298,9 @@ const ProductsScreen = () => {
           <SafeAreaView style={styles.fullScreenModal}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'New Product'}</Text>
+                <Text style={styles.modalTitle}>{editingProduct ? t.editProduct : t.newProduct}</Text>
                 <Text style={styles.modalSubtitle}>
-                  {editingProduct ? 'Update product information' : 'Enter details to register new stock'}
+                  {editingProduct ? t.updateProductInfo : t.enterDetailsNewStock}
                 </Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={() => {
@@ -319,7 +321,7 @@ const ProductsScreen = () => {
                 contentContainerStyle={{ paddingBottom: 40 }}
               >
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Product Name *</Text>
+                  <Text style={styles.label}>{t.productName}</Text>
                   <TextInput 
                     style={styles.input}
                     placeholder="e.g. Velvet Armchair"
@@ -330,7 +332,7 @@ const ProductsScreen = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Unit</Text>
+                  <Text style={styles.label}>{t.unit}</Text>
                   <TextInput 
                     style={styles.input}
                     placeholder="e.g. Pcs"
@@ -353,7 +355,7 @@ const ProductsScreen = () => {
 
                 <View style={styles.row}>
                   <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.label}>Initial Stock *</Text>
+                    <Text style={styles.label}>{t.initialStock}</Text>
                     <TextInput 
                       style={styles.input}
                       placeholder="0"
@@ -364,7 +366,7 @@ const ProductsScreen = () => {
                     />
                   </View>
                   <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.label}>Base Price *</Text>
+                    <Text style={styles.label}>{t.basePrice}</Text>
                     <TextInput 
                       style={styles.input}
                       placeholder="0.00"
@@ -377,7 +379,7 @@ const ProductsScreen = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Category *</Text>
+                  <Text style={styles.label}>{t.category} *</Text>
                   <TouchableOpacity 
                     style={styles.picker} 
                     onPress={() => {
@@ -386,7 +388,7 @@ const ProductsScreen = () => {
                     }}
                   >
                     <Text style={[styles.pickerText, (selectedCategoryId || newCategoryName) ? { color: theme.colors.text } : null]}>
-                      {newCategoryName ? newCategoryName : (selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : 'Select Category')}
+                      {newCategoryName ? newCategoryName : (selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : t.selectCategory)}
                     </Text>
                     <ChevronDown size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
@@ -401,7 +403,7 @@ const ProductsScreen = () => {
                     {submitting ? (
                       <ActivityIndicator color="#FFF" />
                     ) : (
-                      <Text style={styles.submitText}>{editingProduct ? 'Save Changes' : 'Add Product'}</Text>
+                      <Text style={styles.submitText}>{editingProduct ? t.saveChanges : t.addProduct}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -411,7 +413,7 @@ const ProductsScreen = () => {
                       resetForm();
                     }}
                   >
-                    <Text style={styles.cancelText}>Discard</Text>
+                    <Text style={styles.cancelText}>{t.discard}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -422,7 +424,7 @@ const ProductsScreen = () => {
               <View style={styles.innerModalOverlay}>
                 <View style={styles.innerModalContent}>
                   <View style={styles.innerModalHeader}>
-                    <Text style={styles.innerModalTitle}>Select Category</Text>
+                    <Text style={styles.innerModalTitle}>{t.selectCategoryTitle}</Text>
                     <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
                       <X size={20} color={theme.colors.text} />
                     </TouchableOpacity>
@@ -431,7 +433,7 @@ const ProductsScreen = () => {
                   <View style={styles.modalSearch}>
                     <Search size={18} color={theme.colors.textSecondary} />
                     <TextInput 
-                      placeholder="Search or add new..." 
+                      placeholder={t.searchOrAddNew} 
                       style={styles.modalSearchInput}
                       value={catSearchQuery}
                       onChangeText={setCatSearchQuery}
@@ -466,7 +468,7 @@ const ProductsScreen = () => {
                           }}
                         >
                           <Plus size={18} color={theme.colors.primary} />
-                          <Text style={styles.addNewItemText}>Add "{catSearchQuery}" as new category</Text>
+                          <Text style={styles.addNewItemText}>{t.addAsNewCategory.replace('{query}', catSearchQuery)}</Text>
                         </TouchableOpacity>
                       ) : null
                     )}
@@ -484,7 +486,7 @@ const ProductsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.dropdownModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Category</Text>
+              <Text style={styles.modalTitle}>{t.filterCategory}</Text>
               <TouchableOpacity onPress={() => setShowFilterModal(false)}>
                 <X size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -499,7 +501,7 @@ const ProductsScreen = () => {
                 }}
               >
                 <Text style={[styles.categoryItemText, filterCategoryId === null && styles.activeCategoryItemText]}>
-                  All Categories
+                  {t.allCategories}
                 </Text>
               </TouchableOpacity>
               

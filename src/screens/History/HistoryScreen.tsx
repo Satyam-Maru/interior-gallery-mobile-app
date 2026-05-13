@@ -11,8 +11,10 @@ import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { FileSpreadsheet, TrendingUp, TrendingDown, Wallet } from 'lucide-react-native';
+import { useLanguage } from '../../context/LanguageContext';
 
 const HistoryScreen = () => {
+  const { t } = useLanguage();
   const [history, setHistory] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [parties, setParties] = useState<any[]>([]);
@@ -315,7 +317,7 @@ const HistoryScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>History</Text>
+        <Text style={styles.title}>{t.history}</Text>
         <Clock size={24} color={theme.colors.primary} />
       </View>
 
@@ -326,7 +328,7 @@ const HistoryScreen = () => {
         >
           <Filter size={16} color={activeFilterCount > 0 ? '#FFF' : theme.colors.primary} />
           <Text style={[styles.filterText, activeFilterCount > 0 && styles.activeFilterText]}>
-            Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+            {t.filters} {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
           </Text>
           <ChevronDown size={16} color={activeFilterCount > 0 ? '#FFF' : theme.colors.textSecondary} />
         </TouchableOpacity>
@@ -341,7 +343,7 @@ const HistoryScreen = () => {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
                   <TrendingUp size={16} color={theme.colors.success} />
-                  <Text style={styles.summaryLabelText}>Total Sales</Text>
+                  <Text style={styles.summaryLabelText}>{t.totalSales}</Text>
                 </View>
                 <Text style={[styles.summaryValueText, { color: theme.colors.success }]}>
                   ₹{totals.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -351,7 +353,7 @@ const HistoryScreen = () => {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
                   <TrendingDown size={16} color={theme.colors.error} />
-                  <Text style={styles.summaryLabelText}>Total Buy</Text>
+                  <Text style={styles.summaryLabelText}>{t.totalBuy}</Text>
                 </View>
                 <Text style={[styles.summaryValueText, { color: theme.colors.error }]}>
                   ₹{totals.purchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -363,7 +365,7 @@ const HistoryScreen = () => {
               <View style={styles.netInfo}>
                 <Wallet size={20} color={totals.net >= 0 ? theme.colors.success : theme.colors.error} />
                 <View>
-                  <Text style={styles.netLabel}>Net Balance</Text>
+                  <Text style={styles.netLabel}>{t.netBalance}</Text>
                   <Text style={[styles.netValue, { color: totals.net >= 0 ? theme.colors.success : theme.colors.error }]}>
                     ₹{totals.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </Text>
@@ -379,7 +381,7 @@ const HistoryScreen = () => {
                 ) : (
                   <>
                     <FileSpreadsheet size={18} color="#FFF" />
-                    <Text style={styles.exportText}>Export</Text>
+                    <Text style={styles.exportText}>{t.exportBtn}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -451,7 +453,7 @@ const HistoryScreen = () => {
         <View style={styles.detailModalOverlay}>
           <View style={styles.detailCard}>
             <View style={styles.detailHeader}>
-              <Text style={styles.detailTitle}>Transaction Details</Text>
+              <Text style={styles.detailTitle}>{t.transactionDetails}</Text>
               <TouchableOpacity onPress={() => setSelectedEntry(null)}>
                 <X size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
@@ -460,18 +462,18 @@ const HistoryScreen = () => {
             {selectedEntry && (
               <View style={styles.detailBody}>
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>PRODUCT</Text>
+                  <Text style={styles.detailLabel}>{t.productLabel}</Text>
                   <Text style={styles.detailValueLarge}>{selectedEntry.productName}</Text>
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>PARTY</Text>
+                  <Text style={styles.detailLabel}>{t.partyLabel}</Text>
                   <Text style={styles.detailValue}>{selectedEntry.partyName}</Text>
                 </View>
 
                 <View style={styles.detailRow}>
                   <View style={styles.detailSectionHalf}>
-                    <Text style={styles.detailLabel}>TYPE</Text>
+                    <Text style={styles.detailLabel}>{t.typeLabel}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: selectedEntry.type === 'purchase' ? theme.colors.error + '15' : theme.colors.success + '15' }]}>
                       <Text style={[styles.statusText, { color: selectedEntry.type === 'purchase' ? theme.colors.error : theme.colors.success }]}>
                         {selectedEntry.type.toUpperCase()}
@@ -479,7 +481,7 @@ const HistoryScreen = () => {
                     </View>
                   </View>
                   <View style={styles.detailSectionHalf}>
-                    <Text style={styles.detailLabel}>DATE & TIME</Text>
+                    <Text style={styles.detailLabel}>{t.dateTimeLabel}</Text>
                     <Text style={styles.detailValueSmall}>{formatIST(selectedEntry.created_at)}</Text>
                   </View>
                 </View>
@@ -487,24 +489,24 @@ const HistoryScreen = () => {
                 <View style={styles.detailDivider} />
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Unit Price</Text>
+                  <Text style={styles.summaryLabel}>{t.unitPrice}</Text>
                   <Text style={styles.summaryValue}>₹{parseFloat(selectedEntry.price).toLocaleString()}</Text>
                 </View>
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Quantity</Text>
+                  <Text style={styles.summaryLabel}>{t.quantityLabel}</Text>
                   <Text style={styles.summaryValue}>{selectedEntry.quantity} {selectedEntry.unit}</Text>
                 </View>
 
                 {parseFloat(selectedEntry.discount) > 0 && (
                   <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Discount</Text>
+                    <Text style={styles.summaryLabel}>{t.discountLabel}</Text>
                     <Text style={[styles.summaryValue, { color: theme.colors.error }]}>-{selectedEntry.discount}%</Text>
                   </View>
                 )}
 
                 <View style={[styles.summaryRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>Total Amount</Text>
+                  <Text style={styles.totalLabel}>{t.totalAmount}</Text>
                   <Text style={[styles.totalValue, { color: selectedEntry.type === 'purchase' ? theme.colors.error : theme.colors.success }]}>
                     ₹{(
                       (parseFloat(selectedEntry.quantity) * parseFloat(selectedEntry.price)) * 
@@ -516,7 +518,7 @@ const HistoryScreen = () => {
             )}
 
             <TouchableOpacity style={styles.closeModalButton} onPress={() => setSelectedEntry(null)}>
-              <Text style={styles.closeModalButtonText}>Done</Text>
+              <Text style={styles.closeModalButtonText}>{t.done}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -528,7 +530,7 @@ const HistoryScreen = () => {
           <View style={styles.filterModalContent}>
             {/* Modal Header */}
             <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>Filters</Text>
+              <Text style={styles.filterModalTitle}>{t.filtersTitle}</Text>
               <TouchableOpacity onPress={() => {
                 setShowFilterModal(false);
                 // Reset temp state to active state when closing without applying
@@ -545,9 +547,9 @@ const HistoryScreen = () => {
               {/* Left Sidebar */}
               <View style={styles.filterSidebar}>
                 {[
-                  { id: 'date', label: 'Date Range' },
-                  { id: 'product', label: 'Product' },
-                  { id: 'party', label: 'Party' }
+                  { id: 'date', label: t.dateRange },
+                  { id: 'product', label: t.tabProducts },
+                  { id: 'party', label: t.partyLabel }
                 ].map(item => (
                   <TouchableOpacity 
                     key={item.id}
@@ -573,7 +575,7 @@ const HistoryScreen = () => {
                       <View style={[styles.radioButton, tempFilter === 'all' && styles.radioButtonActive]}>
                         {tempFilter === 'all' && <View style={styles.radioInner} />}
                       </View>
-                      <Text style={styles.optionLabel}>All Time</Text>
+                      <Text style={styles.optionLabel}>{t.allTime}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -583,7 +585,7 @@ const HistoryScreen = () => {
                       <View style={[styles.radioButton, tempFilter === 'custom' && styles.radioButtonActive]}>
                         {tempFilter === 'custom' && <View style={styles.radioInner} />}
                       </View>
-                      <Text style={styles.optionLabel}>Custom Date Range</Text>
+                      <Text style={styles.optionLabel}>{t.customDateRange}</Text>
                     </TouchableOpacity>
 
                     {tempFilter === 'custom' && (
@@ -592,7 +594,7 @@ const HistoryScreen = () => {
                           style={styles.dateTrigger}
                           onPress={() => setShowPicker({ show: true, type: 'start' })}
                         >
-                          <Text style={styles.dateTriggerLabel}>From</Text>
+                          <Text style={styles.dateTriggerLabel}>{t.fromDate}</Text>
                           <Text style={styles.dateTriggerValue}>{formatDate(tempRange.start)}</Text>
                         </TouchableOpacity>
 
@@ -602,7 +604,7 @@ const HistoryScreen = () => {
                           style={styles.dateTrigger}
                           onPress={() => setShowPicker({ show: true, type: 'end' })}
                         >
-                          <Text style={styles.dateTriggerLabel}>To</Text>
+                          <Text style={styles.dateTriggerLabel}>{t.toDate}</Text>
                           <Text style={styles.dateTriggerValue}>{formatDate(tempRange.end)}</Text>
                         </TouchableOpacity>
                       </View>
@@ -615,14 +617,14 @@ const HistoryScreen = () => {
                     <View style={styles.modalSearchMini}>
                       <Search size={16} color={theme.colors.textSecondary} />
                       <TextInput 
-                        placeholder="Search product..." 
+                        placeholder={t.searchProductFilter} 
                         style={styles.modalSearchInputMini}
                         value={productSearch}
                         onChangeText={setProductSearch}
                       />
                     </View>
                     <FlatList
-                      data={[{ id: null, name: 'All Products' }, ...filteredProductsList]}
+                      data={[{ id: null, name: t.allProducts }, ...filteredProductsList]}
                       keyExtractor={(item) => (item.id === null ? 'all' : item.id.toString())}
                       renderItem={({ item }) => (
                         <TouchableOpacity 
@@ -645,14 +647,14 @@ const HistoryScreen = () => {
                     <View style={styles.modalSearchMini}>
                       <Search size={16} color={theme.colors.textSecondary} />
                       <TextInput 
-                        placeholder="Search party..." 
+                        placeholder={t.searchPartyFilter} 
                         style={styles.modalSearchInputMini}
                         value={partySearch}
                         onChangeText={setPartySearch}
                       />
                     </View>
                     <FlatList
-                      data={[{ id: null, name: 'All Parties' }, ...filteredPartiesList]}
+                      data={[{ id: null, name: t.allParties }, ...filteredPartiesList]}
                       keyExtractor={(item) => (item.id === null ? 'all' : item.id.toString())}
                       renderItem={({ item }) => (
                         <TouchableOpacity 
@@ -686,10 +688,10 @@ const HistoryScreen = () => {
                   setTempEntityId(null);
                 }}
               >
-                <Text style={styles.clearButtonText}>Clear All</Text>
+                <Text style={styles.clearButtonText}>{t.clearAll}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.applyButtonLarge} onPress={handleApplyFilter}>
-                <Text style={styles.applyButtonTextLarge}>Apply</Text>
+                <Text style={styles.applyButtonTextLarge}>{t.apply}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -701,8 +703,7 @@ const HistoryScreen = () => {
           value={showPicker.type === 'start' ? tempRange.start : tempRange.end}
           mode="date"
           display="default"
-          onValueChange={onValueChange}
-          onDismiss={onDismiss}
+          onChange={onValueChange}
           maximumDate={new Date()}
         />
       )}
