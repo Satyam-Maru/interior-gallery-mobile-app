@@ -69,6 +69,7 @@ export interface Translations {
   updateProductInfo: string;
   enterDetailsNewStock: string;
   productName: string;
+  productCode: string;
   unit: string;
   initialStock: string;
   basePrice: string;
@@ -159,6 +160,7 @@ export interface Translations {
   saveFailed: string;
   success: string;
   updated: string;
+  enterProductCode: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -192,6 +194,7 @@ export const translations: Record<Language, Translations> = {
     updateProductInfo: 'Update product information',
     enterDetailsNewStock: 'Enter details to register new stock',
     productName: 'Product Name *',
+    productCode: 'Product Code',
     unit: 'Unit',
     initialStock: 'Initial Stock *',
     basePrice: 'Base Price *',
@@ -282,20 +285,21 @@ export const translations: Record<Language, Translations> = {
     saveFailed: 'Save Failed',
     success: 'Success',
     updated: 'Updated',
+    enterProductCode: 'Please enter product code',
   },
 
   gu: {
     // Tab bar
     tabDashboard: 'ડૅશબોર્ડ',
-    tabProducts: 'ઉત્પાદનો',
-    tabManagement: 'વ્યવસ્થાપન',
+    tabProducts: 'પ્રોડક્ટ્સ',
+    tabManagement: 'મેનેજમેન્ટ',
     tabStock: 'સ્ટૉક',
-    tabHistory: 'ઇતિહાસ',
+    tabHistory: 'હિસ્ટ્રી',
 
     // Dashboard
     overview: 'સારાંશ',
     totalStock: 'કુલ સ્ટૉક',
-    totalHistory: 'કુલ ઇતિહાસ',
+    totalHistory: 'કુલ હિસ્ટ્રી',
     purchases: 'ખરીદી',
     sales: 'વેચાણ',
     last7DaysTrend: 'છેલ્લા ૭ દિવસનો ટ્રૅન્ડ',
@@ -305,21 +309,22 @@ export const translations: Record<Language, Translations> = {
 
     // Products
     inventory: 'ઇન્વેન્ટરી',
-    searchProducts: 'ઉત્પાદન શોધો...',
+    searchProducts: 'પ્રોડક્ટ્ શોધો...',
     category: 'શ્રેણી',
     allCategories: 'બધી શ્રેણીઓ',
     filterCategory: 'શ્રેણી ફિલ્ટર',
-    editProduct: 'ઉત્પાદન સંપાદિત કરો',
-    newProduct: 'નવું ઉત્પાદન',
-    updateProductInfo: 'ઉત્પાદનની માહિતી અપડેટ કરો',
+    editProduct: 'પ્રોડક્ટ સંપાદિત કરો',
+    newProduct: 'નવું પ્રોડક્ટ્',
+    updateProductInfo: 'પ્રોડક્ટની માહિતી અપડેટ કરો',
     enterDetailsNewStock: 'નવા સ્ટૉક માટે વિગત દાખલ કરો',
-    productName: 'ઉત્પાદનનું નામ *',
+    productName: 'પ્રોડક્ટ્નું નામ *',
+    productCode: 'પ્રોડક્ટ્ કોડ',
     unit: 'એકમ',
     initialStock: 'પ્રારંભિક સ્ટૉક *',
-    basePrice: 'આધાર ભાવ *',
+    basePrice: 'બેઝ પ્રાઇસ *',
     selectCategory: 'શ્રેણી પસંદ કરો',
     saveChanges: 'ફેરફાર સાચવો',
-    addProduct: 'ઉત્પાદન ઉમેરો',
+    addProduct: 'પ્રોડક્ટ્ ઉમેરો',
     discard: 'રદ કરો',
     selectCategoryTitle: 'શ્રેણી પસંદ કરો',
     searchOrAddNew: 'શોધો અથવા નવું ઉમેરો...',
@@ -331,9 +336,9 @@ export const translations: Record<Language, Translations> = {
     stockEntry: 'સ્ટૉક એન્ટ્રી',
     purchase: 'ખરીદી',
     sell: 'વેચાણ',
-    product: 'ઉત્પાદન *',
+    product: 'પ્રોડક્ટ્ *',
     partySupplierCustomer: 'પાર્ટી (સપ્લાયર/ગ્રાહક) *',
-    selectProduct: 'ઉત્પાદન પસંદ કરો',
+    selectProduct: 'પ્રોડક્ટ્ પસંદ કરો',
     selectParty: 'પાર્ટી પસંદ કરો',
     quantity: 'જથ્થો *',
     price: 'ભાવ *',
@@ -341,19 +346,19 @@ export const translations: Record<Language, Translations> = {
     totalEstimate: 'કુલ અંદાજ',
     confirmPurchase: 'ખરીદી કન્ફર્મ કરો',
     confirmSale: 'વેચાણ કન્ફર્મ કરો',
-    searchProduct: 'ઉત્પાદન શોધો...',
+    searchProduct: 'પ્રોડક્ટ્ શોધો...',
     stock: 'સ્ટૉક',
     searchByName: 'નામ દ્વારા શોધો...',
 
     // History
-    history: 'ઇતિહાસ',
+    history: 'હિસ્ટ્રી',
     filters: 'ફિલ્ટર',
     totalSales: 'કુલ વેચાણ',
     totalBuy: 'કુલ ખરીદી',
     netBalance: 'ચોખ્ખી બૅલૅન્સ',
     exportBtn: 'એક્સપોર્ટ',
     transactionDetails: 'વ્યવહારની વિગત',
-    productLabel: 'ઉત્પાદન',
+    productLabel: 'પ્રોડક્ટ્',
     partyLabel: 'પાર્ટી',
     typeLabel: 'પ્રકાર',
     dateTimeLabel: 'તારીખ અને સમય',
@@ -368,15 +373,15 @@ export const translations: Record<Language, Translations> = {
     customDateRange: 'કસ્ટમ તારીખ શ્રેણી',
     fromDate: 'થી',
     toDate: 'સુધી',
-    allProducts: 'બધા ઉત્પાદનો',
+    allProducts: 'બધા પ્રોડક્ટ્સ',
     allParties: 'બધી પાર્ટીઓ',
     clearAll: 'બધું ક્લીઅર',
     apply: 'લાગુ કરો',
-    searchProductFilter: 'ઉત્પાદન શોધો...',
+    searchProductFilter: 'પ્રોડક્ટ્ શોધો...',
     searchPartyFilter: 'પાર્ટી શોધો...',
 
     // Management
-    management: 'વ્યવસ્થાપન',
+    management: 'મેનેજમેન્ટ',
     suppliers: 'સપ્લાયર',
     customers: 'ગ્રાહક',
     categories: 'શ્રેણી',
@@ -390,7 +395,7 @@ export const translations: Record<Language, Translations> = {
     searchLocations: 'સ્થળ શોધો...',
     noLocationsFound: 'કોઈ સ્થળ મળ્યું નથી',
     saveItem: 'ઉમેરો',
-    edit: 'સંપાદિત',
+    edit: 'એડિટ',
     new: 'નવું',
     updateDetailsFor: 'આની વિગત અપડેટ કરો',
     registerNew: 'નવું નોંધો',
@@ -404,5 +409,6 @@ export const translations: Record<Language, Translations> = {
     saveFailed: 'સાચવી શકાયું નથી',
     success: 'સફળ',
     updated: 'અપડેટ થયું',
+    enterProductCode: 'કૃપા કરીને પ્રોડક્ટ્ કોડ દાખલ કરો',
   },
 };

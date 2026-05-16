@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, K
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2 } from 'lucide-react-native';
+import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2, CheckSquare, Square } from 'lucide-react-native';
 import { ProductService, CategoryService } from '../../services/api';
 import Toast from 'react-native-toast-message';
 import { useLanguage } from '../../context/LanguageContext';
@@ -18,6 +18,8 @@ const ProductsScreen = () => {
   
   // Form State
   const [newName, setNewName] = useState('');
+  const [useProductCode, setUseProductCode] = useState(false);
+  const [newProductCode, setNewProductCode] = useState('');
   const [newUnit, setNewUnit] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [newQuantity, setNewQuantity] = useState('0');
@@ -91,6 +93,8 @@ const ProductsScreen = () => {
   const handleEditProduct = (product: any) => {
     setEditingProduct(product);
     setNewName(product.name);
+    setUseProductCode(!!product.code);
+    setNewProductCode(product.code || '');
     setNewUnit(product.unit || '');
     setNewPrice(product.price.toString());
     setNewQuantity(product.quantity.toString());
@@ -106,6 +110,15 @@ const ProductsScreen = () => {
         type: 'error',
         text1: 'Validation Error',
         text2: 'Product name is required',
+      });
+      return;
+    }
+
+    if (useProductCode && !newProductCode.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: t.validationError,
+        text2: t.enterProductCode,
       });
       return;
     }
@@ -150,6 +163,7 @@ const ProductsScreen = () => {
 
       const productData = {
         name: newName.trim(),
+        code: useProductCode ? newProductCode.trim() : '',
         unit: newUnit.trim() || undefined,
         price: priceNum,
         quantity: qtyNum,
@@ -189,6 +203,8 @@ const ProductsScreen = () => {
 
   const resetForm = () => {
     setNewName('');
+    setUseProductCode(false);
+    setNewProductCode('');
     setNewUnit('');
     setNewPrice('');
     setNewQuantity('0');
@@ -274,6 +290,11 @@ const ProductsScreen = () => {
                   <Text style={styles.productCategory}>
                     {categories.find(c => c.id === item.category_id)?.name || t.uncategorized}
                   </Text>
+                  {item.code && (
+                    <View style={styles.codeBadge}>
+                      <Text style={styles.codeText}>{item.code}</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.stockInfo}>
                   <Text style={[styles.stockCount, isLowStock && styles.lowStockText]}>
@@ -324,12 +345,38 @@ const ProductsScreen = () => {
                   <Text style={styles.label}>{t.productName}</Text>
                   <TextInput 
                     style={styles.input}
-                    placeholder="e.g. Velvet Armchair"
+                    placeholder="e.g. Plywood"
                     value={newName}
                     onChangeText={setNewName}
                     placeholderTextColor={theme.colors.textSecondary}
                   />
                 </View>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => setUseProductCode(!useProductCode)}
+                  activeOpacity={0.7}
+                >
+                  {useProductCode ? (
+                    <CheckSquare size={20} color={theme.colors.primary} />
+                  ) : (
+                    <Square size={20} color={theme.colors.textSecondary} />
+                  )}
+                  <Text style={styles.checkboxLabel}>{t.productCode}</Text>
+                </TouchableOpacity>
+
+                {useProductCode && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>{t.productCode}</Text>
+                    <TextInput 
+                      style={styles.input}
+                      placeholder="e.g. FURN-001"
+                      value={newProductCode}
+                      onChangeText={setNewProductCode}
+                      placeholderTextColor={theme.colors.textSecondary}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t.unit}</Text>
@@ -696,6 +743,34 @@ const styles = StyleSheet.create({
   price: {
     ...theme.typography.caption,
     marginTop: 2,
+  },
+  codeBadge: {
+    backgroundColor: theme.colors.primary + '10',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '20',
+  },
+  codeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+    paddingVertical: 4,
+  },
+  checkboxLabel: {
+    ...theme.typography.body,
+    color: theme.colors.text,
+    fontWeight: '500',
   },
   actions: {
     flexDirection: 'row',

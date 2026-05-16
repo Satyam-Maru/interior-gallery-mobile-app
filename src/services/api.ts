@@ -27,6 +27,7 @@ export const ProductService = {
   getProducts: () => api.get('/products'),
   createProduct: (data: {
     name: string;
+    code?: string;
     unit?: string;
     price: number;
     quantity: number;
@@ -34,6 +35,7 @@ export const ProductService = {
   }) => api.post('/products', data),
   updateProduct: (id: number, data: {
     name?: string;
+    code?: string;
     unit?: string;
     price?: number;
     quantity?: number;
