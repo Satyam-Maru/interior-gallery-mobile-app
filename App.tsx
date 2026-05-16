@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Image, Animated, Text } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { theme } from './src/theme';
 import { LayoutDashboard, Package, ArrowLeftRight, History as HistoryIcon, Users } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import { LanguageProvider } from './src/context/LanguageContext';
+import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
 
 // Screens
 import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
@@ -17,65 +17,87 @@ import StockEntryScreen from './src/screens/StockEntry/StockEntryScreen';
 import HistoryScreen from './src/screens/History/HistoryScreen';
 import ManagementScreen from './src/screens/Management/ManagementScreen';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 function MainTabs() {
+  const { t } = useLanguage();
+
   return (
     <Tab.Navigator
       backBehavior="history"
+      tabBarPosition="bottom"
       screenOptions={{
-        headerShown: false,
+        tabBarShowIcon: true,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarIndicatorStyle: { height: 0 }, // Hide the indicator for a bottom-tab look
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          height: 60,
-          paddingBottom: 8,
+          borderTopWidth: 1,
+          height: 65,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          textTransform: 'none',
+          marginBottom: 5,
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 0,
+        },
+        swipeEnabled: true,
       }}
     >
       <Tab.Screen 
         name="Dashboard" 
         component={DashboardScreen} 
         options={{
-          tabBarIcon: ({ color, size }) => <LayoutDashboard size={size} color={color} />,
+          tabBarLabel: t.tabDashboard,
+          tabBarIcon: ({ color }) => <LayoutDashboard size={24} color={color} />,
         }}
       />
       <Tab.Screen 
         name="Products" 
         component={ProductsScreen} 
         options={{
-          tabBarIcon: ({ color, size }) => <Package size={size} color={color} />,
+          tabBarLabel: t.tabProducts,
+          tabBarIcon: ({ color }) => <Package size={24} color={color} />,
         }}
       />
       <Tab.Screen 
         name="Management" 
         component={ManagementScreen} 
         options={{
-          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          tabBarLabel: t.tabManagement,
+          tabBarIcon: ({ color }) => <Users size={24} color={color} />,
         }}
       />
       <Tab.Screen 
         name="Stock" 
         component={StockEntryScreen} 
         options={{
-          tabBarIcon: ({ color, size }) => <ArrowLeftRight size={size} color={color} />,
+          tabBarLabel: t.tabStock,
+          tabBarIcon: ({ color }) => <ArrowLeftRight size={24} color={color} />,
         }}
       />
       <Tab.Screen 
         name="History" 
         component={HistoryScreen} 
         options={{
-          tabBarIcon: ({ color, size }) => <HistoryIcon size={size} color={color} />,
+          tabBarLabel: t.tabHistory,
+          tabBarIcon: ({ color }) => <HistoryIcon size={24} color={color} />,
         }}
       />
     </Tab.Navigator>
   );
 }
+
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -116,9 +138,10 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
-      <SafeAreaProvider>
-        <View style={styles.container} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <LanguageProvider>
+        <SafeAreaProvider>
+          <View style={styles.container} onLayout={onLayoutRootView}>
           <StatusBar style="dark" />
           <NavigationContainer theme={{
             ...DefaultTheme,
@@ -154,6 +177,7 @@ export default function App() {
         </View>
       </SafeAreaProvider>
     </LanguageProvider>
+    </GestureHandlerRootView>
   );
 }
 
