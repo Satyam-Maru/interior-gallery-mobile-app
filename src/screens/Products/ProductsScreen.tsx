@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, BackHandler } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2, CheckSquare, Square } from 'lucide-react-native';
+import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2, CheckSquare, Square, RotateCw } from 'lucide-react-native';
 import { ProductService, CategoryService } from '../../services/api';
 import Toast from 'react-native-toast-message';
 import { useLanguage } from '../../context/LanguageContext';
@@ -62,12 +61,9 @@ const ProductsScreen = () => {
     return () => backHandler.remove();
   }, [showCategoryModal, showFilterModal, showAddModal]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      resetForm();
-      fetchData();
-    }, [])
-  );
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -235,9 +231,14 @@ const ProductsScreen = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>{t.inventory}</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
-          <Plus size={20} color="#FFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.refreshButton} onPress={fetchData} activeOpacity={0.7}>
+            <RotateCw size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+            <Plus size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -477,16 +478,15 @@ const ProductsScreen = () => {
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.modalSearch}>
-                    <Search size={18} color={theme.colors.textSecondary} />
-                    <TextInput 
-                      placeholder={t.searchOrAddNew} 
-                      style={styles.modalSearchInput}
-                      value={catSearchQuery}
-                      onChangeText={setCatSearchQuery}
-                      autoFocus={Platform.OS === 'android'}
-                    />
-                  </View>
+                    <View style={styles.modalSearch}>
+                      <Search size={18} color={theme.colors.textSecondary} />
+                      <TextInput 
+                        placeholder={t.searchOrAddNew} 
+                        style={styles.modalSearchInput}
+                        value={catSearchQuery}
+                        onChangeText={setCatSearchQuery}
+                      />
+                    </View>
 
                   <FlatList
                     data={filteredCategories}
@@ -590,6 +590,21 @@ const styles = StyleSheet.create({
   title: {
     ...theme.typography.h1,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   addButton: {
     backgroundColor: theme.colors.primary,
     width: 44,
@@ -691,6 +706,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: theme.spacing.lg,
+    paddingBottom: 40,
   },
   productCard: {
     backgroundColor: theme.colors.surface,

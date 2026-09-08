@@ -51,8 +51,10 @@ export interface Translations {
   overview: string;
   totalStock: string;
   totalHistory: string;
+  billCountLabel: string;
   purchases: string;
   sales: string;
+  outstandingLabel: string;
   last7DaysTrend: string;
   stockByCategory: string;
   updatingStatistics: string;
@@ -83,10 +85,12 @@ export interface Translations {
   uncategorized: string;
   units: string;
 
-  // ── Stock Entry ──────────────────────────────────────────
+  // ── Stock / Bill Entry ───────────────────────────────────
   stockEntry: string;
   purchase: string;
   sell: string;
+  purchaseReturn: string;
+  sellReturn: string;
   product: string;
   partySupplierCustomer: string;
   selectProduct: string;
@@ -97,11 +101,48 @@ export interface Translations {
   totalEstimate: string;
   confirmPurchase: string;
   confirmSale: string;
+  confirmReturn: string;
   searchProduct: string;
   stock: string;
   searchByName: string;
+  addItem: string;
+  removeItem: string;
+  addDiscount: string;
+  removeDiscount: string;
+  originalBill: string;
+  selectBill: string;
+  searchBills: string;
+  note: string;
+  billDate: string;
+  payNow: string;
+  modeOfPayment: string;
+  optional: string;
+  paymentAmount: string;
+  paymentMode: string;
+  cash: string;
+  online: string;
+  netAmount: string;
+  afterDiscount: string;
+  totalBeforeDiscount: string;
+  discountStep: string;
+  itemsLabel: string;
+  noItemsFound: string;
+  createItem: string;
+  noPartyFound: string;
+  createParty: string;
+  viewOriginalBill: string;
+  originalQuantity: string;
+  alreadyReturned: string;
+  maxReturnable: string;
+  exceedsReturnableQty: string;
+  adjustedBillAmount: string;
+  returnsApplied: string;
+  linkedReturnBills: string;
+  originalBillDetails: string;
+  cannotReturnMoreThan: string;
+  onlyOriginalItems: string;
 
-  // ── History ──────────────────────────────────────────────
+  // ── History / Bills ──────────────────────────────────────
   history: string;
   filters: string;
   totalSales: string;
@@ -109,6 +150,7 @@ export interface Translations {
   netBalance: string;
   exportBtn: string;
   transactionDetails: string;
+  billDetails: string;
   productLabel: string;
   partyLabel: string;
   typeLabel: string;
@@ -130,9 +172,22 @@ export interface Translations {
   apply: string;
   searchProductFilter: string;
   searchPartyFilter: string;
+  lineItems: string;
+  paymentsLabel: string;
+  recordPayment: string;
+  outstanding: string;
+  totalPaid: string;
+  paid: string;
+  noBills: string;
+  billCount: string;
+  totalOutstanding: string;
+  allTypes: string;
+  billType: string;
 
   // ── Management ───────────────────────────────────────────
   management: string;
+  parties: string;
+  party: string;
   suppliers: string;
   customers: string;
   categories: string;
@@ -169,15 +224,17 @@ export const translations: Record<Language, Translations> = {
     tabDashboard: 'Dashboard',
     tabProducts: 'Products',
     tabManagement: 'Management',
-    tabStock: 'Stock',
+    tabStock: 'Bill',
     tabHistory: 'History',
 
     // Dashboard
     overview: 'Overview',
     totalStock: 'Total Stock',
     totalHistory: 'Total History',
+    billCountLabel: 'Bills',
     purchases: 'Purchases',
     sales: 'Sales',
+    outstandingLabel: 'Outstanding',
     last7DaysTrend: 'Last 7 Days Trend',
     stockByCategory: 'Stock by Category',
     updatingStatistics: 'Updating statistics...',
@@ -208,32 +265,72 @@ export const translations: Record<Language, Translations> = {
     uncategorized: 'Uncategorized',
     units: 'units',
 
-    // Stock Entry
-    stockEntry: 'Stock Entry',
+    // Stock / Bill Entry
+    stockEntry: 'Bill',
     purchase: 'Purchase',
     sell: 'Sell',
+    purchaseReturn: 'Purchase Return',
+    sellReturn: 'Sell Return',
     product: 'Product *',
-    partySupplierCustomer: 'Party (Supplier/Customer) *',
+    partySupplierCustomer: 'Party *',
     selectProduct: 'Select Product',
     selectParty: 'Select Party',
-    quantity: 'Quantity *',
+    quantity: 'Qty *',
     price: 'Price *',
     discountPercent: 'Discount (%)',
     totalEstimate: 'Total Estimate',
     confirmPurchase: 'Confirm Purchase',
     confirmSale: 'Confirm Sale',
+    confirmReturn: 'Confirm Return',
     searchProduct: 'Search product...',
     stock: 'Stock',
     searchByName: 'Search by name...',
+    addItem: '+ Add Item',
+    removeItem: 'Remove',
+    addDiscount: '+ Add Discount',
+    removeDiscount: 'Remove',
+    originalBill: 'Original Bill *',
+    selectBill: 'Select Original Bill',
+    searchBills: 'Search bills...',
+    note: 'Note (optional)',
+    billDate: 'Bill Date',
+    payNow: 'Mode of Payment (optional)',
+    modeOfPayment: 'Mode of Payment',
+    optional: 'Optional',
+    paymentAmount: 'Amount Paid',
+    paymentMode: 'Payment Mode',
+    cash: 'Cash',
+    online: 'Online',
+    netAmount: 'Net Amount',
+    afterDiscount: 'After discount',
+    totalBeforeDiscount: 'Subtotal',
+    discountStep: 'Discount',
+    itemsLabel: 'Items',
+    noItemsFound: 'No items found',
+    createItem: 'Create & Select',
+    noPartyFound: 'No party found',
+    createParty: 'Create & Select Party',
+    viewOriginalBill: 'View Original Bill',
+    originalQuantity: 'Original Qty',
+    alreadyReturned: 'Already Returned',
+    maxReturnable: 'Max Returnable',
+    exceedsReturnableQty: 'Quantity exceeds available return count',
+    adjustedBillAmount: 'Adjusted Amount',
+    returnsApplied: 'Returns Applied',
+    linkedReturnBills: 'Return References',
+    originalBillDetails: 'Original Bill Details',
+    cannotReturnMoreThan: 'Cannot return more than',
+    onlyOriginalItems: 'Only items from the original bill can be returned',
 
-    // History
-    history: 'History',
+    // History / Bills
+    history: 'Bills',
     filters: 'Filters',
     totalSales: 'Total Sales',
-    totalBuy: 'Total Buy',
+    totalBuy: 'Total Purchases',
     netBalance: 'Net Balance',
     exportBtn: 'Export',
     transactionDetails: 'Transaction Details',
+    billDetails: 'Bill Details',
     productLabel: 'PRODUCT',
     partyLabel: 'PARTY',
     typeLabel: 'TYPE',
@@ -255,9 +352,22 @@ export const translations: Record<Language, Translations> = {
     apply: 'Apply',
     searchProductFilter: 'Search product...',
     searchPartyFilter: 'Search party...',
+    lineItems: 'Items',
+    paymentsLabel: 'Payments',
+    recordPayment: 'Record Payment',
+    outstanding: 'Outstanding',
+    totalPaid: 'Total Paid',
+    paid: 'Paid',
+    noBills: 'No bills found',
+    billCount: 'Bills',
+    totalOutstanding: 'Outstanding',
+    allTypes: 'All Types',
+    billType: 'Bill Type',
 
     // Management
     management: 'Management',
+    parties: 'Parties',
+    party: 'Party',
     suppliers: 'Suppliers',
     customers: 'Customers',
     categories: 'Categories',
@@ -293,15 +403,17 @@ export const translations: Record<Language, Translations> = {
     tabDashboard: 'ડૅશબોર્ડ',
     tabProducts: 'પ્રોડક્ટ્સ',
     tabManagement: 'મેનેજમેન્ટ',
-    tabStock: 'સ્ટૉક',
+    tabStock: 'બિલ',
     tabHistory: 'હિસ્ટ્રી',
 
     // Dashboard
     overview: 'સારાંશ',
     totalStock: 'કુલ સ્ટૉક',
     totalHistory: 'કુલ હિસ્ટ્રી',
+    billCountLabel: 'બિલ',
     purchases: 'ખરીદી',
     sales: 'વેચાણ',
+    outstandingLabel: 'બાકી રકમ',
     last7DaysTrend: 'છેલ્લા ૭ દિવસનો ટ્રૅન્ડ',
     stockByCategory: 'શ્રેણી મુજબ સ્ટૉક',
     updatingStatistics: 'આંકડા અપડેટ થઈ રહ્યા છે...',
@@ -332,12 +444,14 @@ export const translations: Record<Language, Translations> = {
     uncategorized: 'વર્ગીકૃત નથી',
     units: 'એકમ',
 
-    // Stock Entry
-    stockEntry: 'સ્ટૉક એન્ટ્રી',
+    // Stock / Bill Entry
+    stockEntry: 'બિલ',
     purchase: 'ખરીદી',
     sell: 'વેચાણ',
+    purchaseReturn: 'ખરીદી વળતર',
+    sellReturn: 'વેચાણ વળતર',
     product: 'પ્રોડક્ટ્ *',
-    partySupplierCustomer: 'પાર્ટી (સપ્લાયર/ગ્રાહક) *',
+    partySupplierCustomer: 'પાર્ટી *',
     selectProduct: 'પ્રોડક્ટ્ પસંદ કરો',
     selectParty: 'પાર્ટી પસંદ કરો',
     quantity: 'જથ્થો *',
@@ -346,18 +460,56 @@ export const translations: Record<Language, Translations> = {
     totalEstimate: 'કુલ અંદાજ',
     confirmPurchase: 'ખરીદી કન્ફર્મ કરો',
     confirmSale: 'વેચાણ કન્ફર્મ કરો',
+    confirmReturn: 'વળતર કન્ફર્મ કરો',
     searchProduct: 'પ્રોડક્ટ્ શોધો...',
     stock: 'સ્ટૉક',
     searchByName: 'નામ દ્વારા શોધો...',
+    addItem: '+ આઇટમ ઉમેરો',
+    removeItem: 'દૂર કરો',
+    addDiscount: '+ ડિસ્કાઉન્ટ ઉમેરો',
+    removeDiscount: 'દૂર કરો',
+    originalBill: 'મૂળ બિલ *',
+    selectBill: 'મૂળ બિલ પસંદ કરો',
+    searchBills: 'બિલ શોધો...',
+    note: 'નોંધ (વૈકલ્પિક)',
+    billDate: 'બિલ તારીખ',
+    payNow: 'ચૂકવણી પ્રકાર (વૈકલ્પિક)',
+    modeOfPayment: 'ચૂકવણી પ્રકાર',
+    optional: 'વૈકલ્પિક',
+    paymentAmount: 'ચૂકવેલ રકમ',
+    paymentMode: 'ચૂકવણી પ્રકાર',
+    cash: 'રોકડ',
+    online: 'ઑનલાઇન',
+    netAmount: 'ચોખ્ખી રકમ',
+    afterDiscount: 'ડિસ્કાઉન્ટ પછી',
+    totalBeforeDiscount: 'પેટા-કુલ',
+    discountStep: 'ડિસ્કાઉન્ટ',
+    itemsLabel: 'આઇટમ',
+    noItemsFound: 'કોઈ આઇટમ મળી નથી',
+    createItem: 'બનાવો અને પસંદ કરો',
+    noPartyFound: 'કોઈ પાર્ટી મળી નથી',
+    createParty: 'પાર્ટી બનાવો અને પસંદ કરો',
+    viewOriginalBill: 'મૂળ બિલ જુઓ',
+    originalQuantity: 'મૂળ જથ્થો',
+    alreadyReturned: 'અગાઉ પરત કરેલ',
+    maxReturnable: 'મહત્તમ પરત એકમો',
+    exceedsReturnableQty: 'જથ્થો પરત કરવા યોગ્ય સંખ્યા કરતાં વધુ છે',
+    adjustedBillAmount: 'સુધારેલ રકમ',
+    returnsApplied: 'પરત કરેલ રકમ',
+    linkedReturnBills: 'પરત બિલ સંદર્ભ',
+    originalBillDetails: 'મૂળ બિલની વિગતો',
+    cannotReturnMoreThan: 'આનાથી વધુ પરત કરી શકાતું નથી:',
+    onlyOriginalItems: 'માત્ર મૂળ બિલની આઇટમ્સ જ પરત કરી શકાય છે',
 
-    // History
-    history: 'હિસ્ટ્રી',
+    // History / Bills
+    history: 'બિલ',
     filters: 'ફિલ્ટર',
     totalSales: 'કુલ વેચાણ',
     totalBuy: 'કુલ ખરીદી',
     netBalance: 'ચોખ્ખી બૅલૅન્સ',
     exportBtn: 'એક્સપોર્ટ',
     transactionDetails: 'વ્યવહારની વિગત',
+    billDetails: 'બિલ વિગત',
     productLabel: 'પ્રોડક્ટ્',
     partyLabel: 'પાર્ટી',
     typeLabel: 'પ્રકાર',
@@ -379,9 +531,22 @@ export const translations: Record<Language, Translations> = {
     apply: 'લાગુ કરો',
     searchProductFilter: 'પ્રોડક્ટ્ શોધો...',
     searchPartyFilter: 'પાર્ટી શોધો...',
+    lineItems: 'આઇટમ',
+    paymentsLabel: 'ચૂકવણી',
+    recordPayment: 'ચૂકવણી નોંધો',
+    outstanding: 'બાકી',
+    totalPaid: 'કુલ ચૂકવ્યું',
+    paid: 'ચૂકવ્યું',
+    noBills: 'કોઈ બિલ મળ્યું નથી',
+    billCount: 'બિલ',
+    totalOutstanding: 'બાકી રકમ',
+    allTypes: 'બધા પ્રકાર',
+    billType: 'બિલ પ્રકાર',
 
     // Management
     management: 'મેનેજમેન્ટ',
+    parties: 'પાર્ટીઓ',
+    party: 'પાર્ટી',
     suppliers: 'સપ્લાયર',
     customers: 'ગ્રાહક',
     categories: 'શ્રેણી',

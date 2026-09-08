@@ -1,9 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Package, ArrowUpRight, ArrowDownLeft, History } from 'lucide-react-native';
+import { Package, ArrowUpRight, ArrowDownLeft, Receipt, AlertCircle, RotateCw } from 'lucide-react-native';
 import { DashboardService } from '../../services/api';
 import LineChart from 'react-native-chart-kit/dist/line-chart';
 import PieChart from 'react-native-chart-kit/dist/PieChart';
@@ -35,7 +34,8 @@ const DashboardScreen = () => {
     totalStock: 0,
     totalPurchases: 0,
     totalSales: 0,
-    historyCount: 0,
+    billCount: 0,
+    totalOutstanding: 0,
     dailyTrend: [],
     categoryDistribution: []
   });
@@ -52,11 +52,9 @@ const DashboardScreen = () => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const chartConfig = {
     backgroundColor: '#ffffff',
@@ -111,32 +109,41 @@ const DashboardScreen = () => {
           <RefreshControl refreshing={loading} onRefresh={fetchData} colors={[theme.colors.primary]} />
         }
       >
-        {/* Header with language toggle */}
+        {/* Header with refresh button and language toggle */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{t.overview}</Text>
             <Text style={styles.date}>{getFormattedDate(language)}</Text>
           </View>
-          {/* Language pill toggle */}
-          <View style={styles.langToggle}>
+          <View style={styles.headerRight}>
             <TouchableOpacity
-              style={[styles.langOption, language === 'en' && styles.langOptionActive]}
-              onPress={() => setLanguage('en')}
-              activeOpacity={0.8}
+              style={styles.refreshButton}
+              onPress={fetchData}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.langOptionText, language === 'en' && styles.langOptionTextActive]}>
-                EN
-              </Text>
+              <RotateCw size={18} color={theme.colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langOption, language === 'gu' && styles.langOptionActive]}
-              onPress={() => setLanguage('gu')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.langOptionText, language === 'gu' && styles.langOptionTextActive]}>
-                ગુ
-              </Text>
-            </TouchableOpacity>
+            {/* Language pill toggle */}
+            <View style={styles.langToggle}>
+              <TouchableOpacity
+                style={[styles.langOption, language === 'en' && styles.langOptionActive]}
+                onPress={() => setLanguage('en')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.langOptionText, language === 'en' && styles.langOptionTextActive]}>
+                  EN
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.langOption, language === 'gu' && styles.langOptionActive]}
+                onPress={() => setLanguage('gu')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.langOptionText, language === 'gu' && styles.langOptionTextActive]}>
+                  ગુ
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -149,9 +156,9 @@ const DashboardScreen = () => {
             lang={language}
           />
           <StatCard
-            title={t.totalHistory}
-            value={stats.historyCount.toLocaleString()}
-            icon={History}
+            title={t.billCountLabel}
+            value={(stats.billCount ?? 0).toLocaleString()}
+            icon={Receipt}
             color={theme.colors.textSecondary}
             lang={language}
           />
@@ -168,6 +175,14 @@ const DashboardScreen = () => {
             value={stats.totalSales.toLocaleString()}
             icon={ArrowUpRight}
             color={theme.colors.success}
+            isCurrency
+            lang={language}
+          />
+          <StatCard
+            title={t.outstandingLabel}
+            value={(stats.totalOutstanding ?? 0).toLocaleString()}
+            icon={AlertCircle}
+            color="#fd7e14"
             isCurrency
             lang={language}
           />
@@ -239,6 +254,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: theme.spacing.lg,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -387,7 +403,22 @@ const styles = StyleSheet.create({
   loadingText: {
     ...theme.typography.caption,
     marginTop: 8,
-  }
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default DashboardScreen;

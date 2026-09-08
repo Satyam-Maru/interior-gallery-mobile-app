@@ -1,21 +1,116 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Image, Animated, Text } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StyleSheet, View, Image, Animated, Text, Platform } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { theme } from './src/theme';
-import { LayoutDashboard, Package, ArrowLeftRight, History as HistoryIcon, Users } from 'lucide-react-native';
-import Toast from 'react-native-toast-message';
+import { LayoutDashboard, Package, Receipt, History as HistoryIcon, Users } from 'lucide-react-native';
+import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import { LanguageProvider, useLanguage } from './src/context/LanguageContext';
-
-// Screens
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
 import ProductsScreen from './src/screens/Products/ProductsScreen';
+import ManagementScreen from './src/screens/Management/ManagementScreen';
 import StockEntryScreen from './src/screens/StockEntry/StockEntryScreen';
 import HistoryScreen from './src/screens/History/HistoryScreen';
-import ManagementScreen from './src/screens/Management/ManagementScreen';
+
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{
+        borderLeftColor: theme.colors.success,
+        width: '92%',
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 10,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: '700',
+        color: theme.colors.text,
+      }}
+      text2Style={{
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        flexWrap: 'wrap',
+      }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{
+        borderLeftColor: theme.colors.error,
+        width: '92%',
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 10,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        elevation: 5,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: '700',
+        color: theme.colors.error,
+      }}
+      text2Style={{
+        fontSize: 12,
+        color: theme.colors.text,
+        flexWrap: 'wrap',
+      }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+  info: (props: any) => (
+    <InfoToast
+      {...props}
+      style={{
+        borderLeftColor: theme.colors.primary,
+        width: '92%',
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 10,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: '700',
+        color: theme.colors.text,
+      }}
+      text2Style={{
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        flexWrap: 'wrap',
+      }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+};
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -24,6 +119,12 @@ SplashScreen.preventAutoHideAsync();
 
 function MainTabs() {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
+
+  // Uplift bottom tab bar to fully accommodate devices with bottom software navigation
+  // (Android 3-button navigation, gesture navigation pill, iOS home indicator)
+  const bottomInset = insets.bottom;
+  const tabHeight = 58 + (bottomInset > 0 ? bottomInset : 8);
 
   return (
     <Tab.Navigator
@@ -38,19 +139,30 @@ function MainTabs() {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
           borderTopWidth: 1,
-          height: 65,
-          elevation: 0,
-          shadowOpacity: 0,
+          height: tabHeight,
+          paddingBottom: bottomInset > 0 ? bottomInset : 6,
+          paddingTop: 6,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.08,
+          shadowRadius: 6,
         },
         tabBarLabelStyle: {
           fontSize: 10,
+          fontWeight: '600',
           textTransform: 'none',
-          marginBottom: 5,
+          marginTop: 2,
+          marginBottom: 0,
         },
         tabBarItemStyle: {
           paddingHorizontal: 0,
+          paddingVertical: 2,
+          height: 52,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
-        swipeEnabled: true,
+        swipeEnabled: false,
       }}
     >
       <Tab.Screen 
@@ -58,7 +170,7 @@ function MainTabs() {
         component={DashboardScreen} 
         options={{
           tabBarLabel: t.tabDashboard,
-          tabBarIcon: ({ color }) => <LayoutDashboard size={24} color={color} />,
+          tabBarIcon: ({ color }) => <LayoutDashboard size={22} color={color} />,
         }}
       />
       <Tab.Screen 
@@ -66,7 +178,7 @@ function MainTabs() {
         component={ProductsScreen} 
         options={{
           tabBarLabel: t.tabProducts,
-          tabBarIcon: ({ color }) => <Package size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Package size={22} color={color} />,
         }}
       />
       <Tab.Screen 
@@ -74,15 +186,15 @@ function MainTabs() {
         component={ManagementScreen} 
         options={{
           tabBarLabel: t.tabManagement,
-          tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
         }}
       />
       <Tab.Screen 
-        name="Stock" 
+        name="Bill" 
         component={StockEntryScreen} 
         options={{
           tabBarLabel: t.tabStock,
-          tabBarIcon: ({ color }) => <ArrowLeftRight size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Receipt size={22} color={color} />,
         }}
       />
       <Tab.Screen 
@@ -90,14 +202,12 @@ function MainTabs() {
         component={HistoryScreen} 
         options={{
           tabBarLabel: t.tabHistory,
-          tabBarIcon: ({ color }) => <HistoryIcon size={24} color={color} />,
+          tabBarIcon: ({ color }) => <HistoryIcon size={22} color={color} />,
         }}
       />
     </Tab.Navigator>
   );
 }
-
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -173,7 +283,7 @@ export default function App() {
               <Text style={styles.loadingText}>Loading Premium Experience...</Text>
             </Animated.View>
           )}
-          <Toast />
+          <Toast config={toastConfig} topOffset={Platform.OS === 'ios' ? 55 : 45} />
         </View>
       </SafeAreaProvider>
     </LanguageProvider>
