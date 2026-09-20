@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { Text, TextInput } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Users, Plus, Search, X, Layers, Edit2, RotateCw } from 'lucide-react-native';

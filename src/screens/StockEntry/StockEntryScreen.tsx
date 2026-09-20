@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, FlatList, ActivityIndicator, Platform, BackHandler, Alert,
+  View, StyleSheet, TouchableOpacity, ScrollView,
+  FlatList, ActivityIndicator, Platform, BackHandler, Alert,
   Modal, KeyboardAvoidingView
 } from 'react-native';
+import { Text, TextInput } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../theme';
@@ -542,13 +543,18 @@ const StockEntryScreen = () => {
 
   // ── Discount breakdown label ─────────────────────────────
   const discountSteps = (() => {
-    const steps: { label: string; value: number }[] = [];
+    const valid = discounts.filter(d => (parseFloat(d) || 0) > 0);
+    const steps: { label: string; amount: number; value: number }[] = [];
     let running = totalAmount;
     discounts.forEach((d, i) => {
       const pct = parseFloat(d) || 0;
       if (pct > 0) {
-        running = running * (1 - pct / 100);
-        steps.push({ label: `Discount ${i + 1}: ${pct}%`, value: running });
+        const discAmount = running * (pct / 100);
+        running -= discAmount;
+        const label = valid.length > 1
+          ? `${t.discountStep} ${i + 1} (${pct}%)`
+          : `${t.discountStep} (${pct}%)`;
+        steps.push({ label, amount: discAmount, value: running });
       }
     });
     return steps;
@@ -678,7 +684,8 @@ const StockEntryScreen = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t.itemsLabel}</Text>
           <TouchableOpacity style={styles.addBtn} onPress={addItem}>
-            <Text style={styles.addBtnText}>{t.addItem}</Text>
+            <Plus size={14} color={theme.colors.primary} />
+            <Text style={styles.addBtnText}>{t.addItem.replace(/^\+\s*/, '')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -776,7 +783,8 @@ const StockEntryScreen = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t.discountPercent}</Text>
           <TouchableOpacity style={styles.addBtn} onPress={addDiscount}>
-            <Text style={styles.addBtnText}>{t.addDiscount}</Text>
+            <Plus size={14} color={theme.colors.primary} />
+            <Text style={styles.addBtnText}>{t.addDiscount.replace(/^\+\s*/, '')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -874,13 +882,13 @@ const StockEntryScreen = () => {
           </View>
           {discountSteps.map((step, i) => (
             <View key={i} style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: theme.colors.error }]}>{step.label}</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.error }]}>₹{step.value.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>{step.label}</Text>
+              <Text style={styles.summaryValue}>- ₹{step.amount.toFixed(2)}</Text>
             </View>
           ))}
           <View style={[styles.summaryRow, styles.summaryTotal]}>
-            <Text style={styles.summaryTotalLabel}>{t.netAmount}</Text>
-            <Text style={styles.summaryTotalValue}>
+            <Text style={[styles.summaryTotalLabel, { color: '#000000' }]}>{t.netAmount}</Text>
+            <Text style={[styles.summaryTotalValue, { color: '#000000' }]}>
               ₹{netAmount.toFixed(2)}
             </Text>
           </View>
@@ -1451,29 +1459,41 @@ const StockEntryScreen = () => {
                   <Text style={styles.origFinancialLabel}>{t.totalBeforeDiscount}</Text>
                   <Text style={styles.origFinancialValue}>₹{parseFloat(originalBill?.total_amount || 0).toFixed(2)}</Text>
                 </View>
-                {originalBill?.discounts && originalBill.discounts.length > 0 && (
-                  <View style={styles.origFinancialRow}>
-                    <Text style={[styles.origFinancialLabel, { color: theme.colors.error }]}>Discounts</Text>
-                    <Text style={[styles.origFinancialValue, { color: theme.colors.error }]}>
-                      {originalBill.discounts.map((d: any) => `${d}%`).join(' + ')}
-                    </Text>
-                  </View>
-                )}
+                {originalBill?.discounts && originalBill.discounts.length > 0 && (() => {
+                  const activeDiscounts = originalBill.discounts.filter((d: any) => (parseFloat(d) || 0) > 0);
+                  let running = parseFloat(originalBill.total_amount || 0);
+                  return activeDiscounts.map((d: any, i: number) => {
+                    const pct = parseFloat(d) || 0;
+                    const discAmount = running * (pct / 100);
+                    running -= discAmount;
+                    const label = activeDiscounts.length > 1
+                      ? `${t.discountStep} ${i + 1} (${pct}%)`
+                      : `${t.discountStep} (${pct}%)`;
+                    return (
+                      <View key={i} style={styles.origFinancialRow}>
+                        <Text style={styles.origFinancialLabel}>{label}</Text>
+                        <Text style={styles.origFinancialValue}>
+                          - ₹{discAmount.toFixed(2)}
+                        </Text>
+                      </View>
+                    );
+                  });
+                })()}
                 <View style={styles.origFinancialRow}>
                   <Text style={styles.origFinancialLabel}>Original Net Amount</Text>
-                  <Text style={styles.origFinancialValue}>₹{parseFloat(originalBill?.net_amount || 0).toFixed(2)}</Text>
+                  <Text style={[styles.origFinancialValue, { color: '#000000' }]}>₹{parseFloat(originalBill?.net_amount || 0).toFixed(2)}</Text>
                 </View>
                 {originalBill?.total_returned > 0 && (
                   <>
                     <View style={styles.origFinancialRow}>
-                      <Text style={[styles.origFinancialLabel, { color: theme.colors.error }]}>{t.returnsApplied}</Text>
-                      <Text style={[styles.origFinancialValue, { color: theme.colors.error }]}>
+                      <Text style={styles.origFinancialLabel}>{t.returnsApplied}</Text>
+                      <Text style={styles.origFinancialValue}>
                         - ₹{parseFloat(originalBill.total_returned).toFixed(2)}
                       </Text>
                     </View>
                     <View style={[styles.origFinancialRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6 }]}>
-                      <Text style={[styles.origFinancialLabel, { fontWeight: '700' }]}>{t.adjustedBillAmount}</Text>
-                      <Text style={[styles.origFinancialValue, { fontWeight: '700' }]}>
+                      <Text style={[styles.origFinancialLabel, { fontWeight: '700', color: '#000000' }]}>{t.adjustedBillAmount}</Text>
+                      <Text style={[styles.origFinancialValue, { fontWeight: '700', color: '#000000' }]}>
                         ₹{parseFloat(originalBill.adjusted_net_amount).toFixed(2)}
                       </Text>
                     </View>
@@ -1486,7 +1506,7 @@ const StockEntryScreen = () => {
                   </Text>
                 </View>
                 <View style={[styles.origFinancialRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6 }]}>
-                  <Text style={[styles.origFinancialLabel, { fontWeight: '700', color: (originalBill?.outstanding || 0) > 0 ? theme.colors.error : theme.colors.success }]}>
+                  <Text style={[styles.origFinancialLabel, { fontWeight: '700' }]}>
                     {t.outstanding}
                   </Text>
                   <Text style={[styles.origFinancialValue, { fontWeight: '700', color: (originalBill?.outstanding || 0) > 0 ? theme.colors.error : theme.colors.success }]}>
@@ -1664,11 +1684,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md, gap: 10, marginBottom: theme.spacing.xl,
   },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { ...theme.typography.body, color: theme.colors.textSecondary },
-  summaryValue: { ...theme.typography.body, fontWeight: '600', color: theme.colors.text },
-  summaryTotal: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 4 },
-  summaryTotalLabel: { ...theme.typography.body, fontWeight: '700', color: theme.colors.text },
-  summaryTotalValue: { ...theme.typography.h2, fontWeight: '800', color: theme.colors.primary },
+  summaryLabel: { ...theme.typography.body, color: theme.colors.textSecondary, flex: 1 },
+  summaryValue: { ...theme.typography.body, fontWeight: '600', color: theme.colors.text, textAlign: 'right' },
+  summaryTotal: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryTotalLabel: { ...theme.typography.body, fontWeight: '700', color: '#000000', flex: 1 },
+  summaryTotalValue: { ...theme.typography.h2, fontWeight: '800', color: '#000000', textAlign: 'right' },
 
   // Submit
   submitBtn: {

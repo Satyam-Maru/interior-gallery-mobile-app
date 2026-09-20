@@ -183,6 +183,11 @@ export interface Translations {
   totalOutstanding: string;
   allTypes: string;
   billType: string;
+  editBill: string;
+  updateBill: string;
+  updatingBill: string;
+  billUpdatedSuccess: string;
+  editBillPrompt: string;
 
   // ── Management ───────────────────────────────────────────
   management: string;
@@ -285,9 +290,9 @@ export const translations: Record<Language, Translations> = {
     searchProduct: 'Search product...',
     stock: 'Stock',
     searchByName: 'Search by name...',
-    addItem: '+ Add Item',
+    addItem: 'Add Item',
     removeItem: 'Remove',
-    addDiscount: '+ Add Discount',
+    addDiscount: 'Add Discount',
     removeDiscount: 'Remove',
     originalBill: 'Original Bill *',
     selectBill: 'Select Original Bill',
@@ -363,6 +368,11 @@ export const translations: Record<Language, Translations> = {
     totalOutstanding: 'Outstanding',
     allTypes: 'All Types',
     billType: 'Bill Type',
+    editBill: 'Edit Bill',
+    updateBill: 'Update Bill',
+    updatingBill: 'Updating bill...',
+    billUpdatedSuccess: 'Bill updated successfully',
+    editBillPrompt: 'Edit bill details and items',
 
     // Management
     management: 'Management',
@@ -464,9 +474,9 @@ export const translations: Record<Language, Translations> = {
     searchProduct: 'પ્રોડક્ટ્ શોધો...',
     stock: 'સ્ટૉક',
     searchByName: 'નામ દ્વારા શોધો...',
-    addItem: '+ આઇટમ ઉમેરો',
+    addItem: 'આઇટમ ઉમેરો',
     removeItem: 'દૂર કરો',
-    addDiscount: '+ ડિસ્કાઉન્ટ ઉમેરો',
+    addDiscount: 'ડિસ્કાઉન્ટ ઉમેરો',
     removeDiscount: 'દૂર કરો',
     originalBill: 'મૂળ બિલ *',
     selectBill: 'મૂળ બિલ પસંદ કરો',
@@ -542,6 +552,11 @@ export const translations: Record<Language, Translations> = {
     totalOutstanding: 'બાકી રકમ',
     allTypes: 'બધા પ્રકાર',
     billType: 'બિલ પ્રકાર',
+    editBill: 'બિલ સંપાદિત કરો',
+    updateBill: 'બિલ અપડેટ કરો',
+    updatingBill: 'બિલ અપડેટ થઈ રહ્યું છે...',
+    billUpdatedSuccess: 'બિલ સફળતાપૂર્વક અપડેટ થયું',
+    editBillPrompt: 'બિલની વિગત અને આઇટમ સંપાદિત કરો',
 
     // Management
     management: 'મેનેજમેન્ટ',

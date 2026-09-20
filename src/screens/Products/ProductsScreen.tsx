@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, BackHandler } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, BackHandler } from 'react-native';
+import { Text, TextInput } from '../../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { Search, Plus, Filter, X, ChevronDown, AlertCircle, Edit2, CheckSquare, Square, RotateCw } from 'lucide-react-native';

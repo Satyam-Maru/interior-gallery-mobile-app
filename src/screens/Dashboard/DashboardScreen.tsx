@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import { Text } from '../../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Package, ArrowUpRight, ArrowDownLeft, Receipt, AlertCircle, RotateCw } from 'lucide-react-native';
+import { Package, ArrowUpRight, ArrowDownLeft, AlertCircle, RotateCw } from 'lucide-react-native';
 import { DashboardService } from '../../services/api';
 import LineChart from 'react-native-chart-kit/dist/line-chart';
 import PieChart from 'react-native-chart-kit/dist/PieChart';
@@ -34,7 +35,6 @@ const DashboardScreen = () => {
     totalStock: 0,
     totalPurchases: 0,
     totalSales: 0,
-    billCount: 0,
     totalOutstanding: 0,
     dailyTrend: [],
     categoryDistribution: []
@@ -155,13 +155,7 @@ const DashboardScreen = () => {
             color={theme.colors.primary}
             lang={language}
           />
-          <StatCard
-            title={t.billCountLabel}
-            value={(stats.billCount ?? 0).toLocaleString()}
-            icon={Receipt}
-            color={theme.colors.textSecondary}
-            lang={language}
-          />
+
           <StatCard
             title={t.purchases}
             value={stats.totalPurchases.toLocaleString()}

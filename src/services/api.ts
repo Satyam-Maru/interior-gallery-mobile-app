@@ -27,6 +27,15 @@ export interface CreateBillPayload {
   note?: string;
 }
 
+export interface UpdateBillPayload {
+  party_id?: number;
+  entity_id?: number;
+  items?: BillItem[];
+  discounts?: number[];
+  bill_date?: string;
+  note?: string | null;
+}
+
 export interface CreatePaymentPayload {
   bill_id: number;
   party_id?: number;
@@ -57,6 +66,9 @@ export const BillService = {
 
   createBill: (data: CreateBillPayload) =>
     api.post('/bills', data),
+
+  updateBill: (id: number, data: UpdateBillPayload) =>
+    api.put(`/bills/${id}`, data),
 
   createPayment: (data: CreatePaymentPayload) =>
     api.post('/bills/payments', data),

@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TouchableOpacity, Modal, TextInput, ScrollView,
+  View, StyleSheet, FlatList, ActivityIndicator,
+  TouchableOpacity, Modal, ScrollView,
   BackHandler, Platform, KeyboardAvoidingView
 } from 'react-native';
+import { Text, TextInput } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import {
   Filter, X, ChevronDown, Search, Calendar,
   ArrowUpRight, ArrowDownLeft, RotateCcw, Clock,
-  TrendingUp, TrendingDown, Wallet, CreditCard, Banknote, FileSpreadsheet, RotateCw
+  TrendingUp, TrendingDown, Wallet, CreditCard, Banknote, FileSpreadsheet, RotateCw,
+  Edit2, Plus, Trash2, Check
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { BillService, PartyService, CreatePaymentPayload } from '../../services/api';
+import { BillService, PartyService, ProductService, CreatePaymentPayload, UpdateBillPayload } from '../../services/api';
 import Toast from 'react-native-toast-message';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -21,11 +23,56 @@ import { useLanguage } from '../../context/LanguageContext';
 
 type BillType = 'purchase' | 'sell' | 'purchase_return' | 'sell_return';
 
-const TYPE_CONFIG: Record<BillType, { color: string; bg: string; icon: any; label: string }> = {
-  purchase:         { color: '#dc3545', bg: '#dc354515', icon: ArrowDownLeft, label: 'Purchase' },
-  sell:             { color: '#28a745', bg: '#28a74515', icon: ArrowUpRight,  label: 'Sell' },
-  purchase_return:  { color: '#fd7e14', bg: '#fd7e1415', icon: RotateCcw,    label: 'Pur. Return' },
-  sell_return:      { color: '#0d6efd', bg: '#0d6efd15', icon: RotateCcw,    label: 'Sell Return' },
+const TYPE_CONFIG: Record<BillType, {
+  color: string;
+  bg: string;
+  icon: any;
+  label: string;
+  iconColor?: string;
+  iconBg?: string;
+  badgeColor?: string;
+  badgeBg?: string;
+}> = {
+  purchase: {
+    color: '#dc3545',
+    bg: '#F1F5F9',
+    icon: ArrowDownLeft,
+    label: 'Purchase',
+    iconColor: '#64748b',
+    iconBg: '#F1F5F9',
+    badgeColor: '#475569',
+    badgeBg: '#F1F5F9',
+  },
+  sell: {
+    color: '#28a745',
+    bg: '#28a74515',
+    icon: ArrowUpRight,
+    label: 'Sell',
+    iconColor: '#28a745',
+    iconBg: '#28a74515',
+    badgeColor: '#28a745',
+    badgeBg: '#28a74515',
+  },
+  purchase_return: {
+    color: '#fd7e14',
+    bg: '#fd7e1415',
+    icon: RotateCcw,
+    label: 'Pur. Return',
+    iconColor: '#fd7e14',
+    iconBg: '#fd7e1415',
+    badgeColor: '#fd7e14',
+    badgeBg: '#fd7e1415',
+  },
+  sell_return: {
+    color: '#0d6efd',
+    bg: '#0d6efd15',
+    icon: RotateCcw,
+    label: 'Sell Return',
+    iconColor: '#0d6efd',
+    iconBg: '#0d6efd15',
+    badgeColor: '#0d6efd',
+    badgeBg: '#0d6efd15',
+  },
 };
 
 const HistoryScreen = () => {
@@ -68,23 +115,75 @@ const HistoryScreen = () => {
   const [payNote, setPayNote] = useState('');
   const [paySubmitting, setPaySubmitting] = useState(false);
 
+  // ── Products for Edit ────────────────────────────────────
+  const [products, setProducts] = useState<any[]>([]);
+
+  // ── Edit Bill state ──────────────────────────────────────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editOriginalBill, setEditOriginalBill] = useState<any>(null);
+  const [editBillId, setEditBillId] = useState<number | null>(null);
+  const [editBillType, setEditBillType] = useState<BillType>('purchase');
+  const [editPartyId, setEditPartyId] = useState<number | null>(null);
+  const [editSelectedParty, setEditSelectedParty] = useState<any | null>(null);
+  const [editBillDate, setEditBillDate] = useState<Date>(new Date());
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [editNote, setEditNote] = useState('');
+  const [editDiscounts, setEditDiscounts] = useState<string[]>([]);
+  const [editItems, setEditItems] = useState<{
+    id: string;
+    product_id: number;
+    product: any;
+    quantity: string;
+    price: string;
+  }[]>([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Sub-modals for Edit Bill
+  const [showEditPartyPicker, setShowEditPartyPicker] = useState(false);
+  const [editPartySearch, setEditPartySearch] = useState('');
+  const [showEditProductPicker, setShowEditProductPicker] = useState(false);
+  const [editItemTargetIdx, setEditItemTargetIdx] = useState<number | null>(null);
+  const [editProductSearch, setEditProductSearch] = useState('');
+
   // ── Totals ───────────────────────────────────────────────
   const [totals, setTotals] = useState({ sales: 0, purchases: 0, net: 0 });
 
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    const sales = bills
-      .filter(b => b.type === 'sell' || b.type === 'sell_return')
-      .reduce((a, b) => a + parseFloat(b.net_amount || 0), 0);
-    const purchases = bills
-      .filter(b => b.type === 'purchase' || b.type === 'purchase_return')
-      .reduce((a, b) => a + parseFloat(b.net_amount || 0), 0);
+    let sales = 0;
+    let purchases = 0;
+
+    if (selectedType === 'sell_return') {
+      sales = bills.reduce((a, b) => a + parseFloat(b.net_amount || 0), 0);
+    } else {
+      sales = bills.reduce((acc, b) => {
+        const amt = parseFloat(b.net_amount || 0);
+        if (b.type === 'sell') return acc + amt;
+        if (b.type === 'sell_return') return acc - amt;
+        return acc;
+      }, 0);
+    }
+
+    if (selectedType === 'purchase_return') {
+      purchases = bills.reduce((a, b) => a + parseFloat(b.net_amount || 0), 0);
+    } else {
+      purchases = bills.reduce((acc, b) => {
+        const amt = parseFloat(b.net_amount || 0);
+        if (b.type === 'purchase') return acc + amt;
+        if (b.type === 'purchase_return') return acc - amt;
+        return acc;
+      }, 0);
+    }
+
     setTotals({ sales, purchases, net: sales - purchases });
-  }, [bills]);
+  }, [bills, selectedType]);
 
   useEffect(() => {
     const back = () => {
+      if (showEditPartyPicker) { setShowEditPartyPicker(false); return true; }
+      if (showEditProductPicker) { setShowEditProductPicker(false); return true; }
+      if (showEditModal) { setShowEditModal(false); return true; }
       if (showPaymentModal) { setShowPaymentModal(false); return true; }
       if (selectedBill) { setSelectedBill(null); return true; }
       if (showFilterModal) { setShowFilterModal(false); return true; }
@@ -92,7 +191,7 @@ const HistoryScreen = () => {
     };
     const h = BackHandler.addEventListener('hardwareBackPress', back);
     return () => h.remove();
-  }, [showPaymentModal, selectedBill, showFilterModal]);
+  }, [showEditPartyPicker, showEditProductPicker, showEditModal, showPaymentModal, selectedBill, showFilterModal]);
 
   const fetchData = async (overrides?: any) => {
     try {
@@ -113,12 +212,14 @@ const HistoryScreen = () => {
         params.entity_id = entityId;
       }
 
-      const [billRes, entRes] = await Promise.all([
+      const [billRes, entRes, prodRes] = await Promise.all([
         BillService.getBills(params),
         PartyService.getParties(),
+        ProductService.getProducts(),
       ]);
       setBills(billRes.data);
       setParties(entRes.data);
+      setProducts(prodRes.data);
     } catch {
       Toast.show({ type: 'error', text1: 'Fetch Failed', text2: 'Could not load bills' });
     } finally {
@@ -204,6 +305,193 @@ const HistoryScreen = () => {
       Toast.show({ type: 'error', text1: 'Error', text2: msg });
     } finally {
       setPaySubmitting(false);
+    }
+  };
+
+  // ── Edit Bill handlers ───────────────────────────────────
+  const openEditModal = async (bill: any) => {
+    try {
+      setEditOriginalBill(bill);
+      setEditBillId(bill.id);
+      setEditBillType(bill.type);
+      const party = bill.parties || parties.find((p: any) => p.id === (bill.party_id || bill.entity_id));
+      setEditPartyId(party?.id || bill.party_id || bill.entity_id || null);
+      setEditSelectedParty(party || null);
+
+      let bDate = new Date();
+      if (bill.bill_date) {
+        let c = bill.bill_date.replace(' ', 'T');
+        if (!c.includes('Z') && !c.includes('+')) c += 'Z';
+        const d = new Date(c);
+        if (!isNaN(d.getTime())) bDate = d;
+      }
+      setEditBillDate(bDate);
+      setEditNote(bill.note || '');
+      setEditDiscounts((bill.discounts || []).map((d: any) => String(d)));
+
+      let prodList = products;
+      if (prodList.length === 0) {
+        const pRes = await ProductService.getProducts();
+        prodList = pRes.data;
+        setProducts(prodList);
+      }
+
+      const mappedItems = (bill.bill_items || []).map((bi: any, index: number) => {
+        const prod = bi.products || prodList.find((p: any) => p.id === bi.product_id) || { id: bi.product_id, name: `Product #${bi.product_id}` };
+        return {
+          id: String(bi.id || index),
+          product_id: bi.product_id,
+          product: prod,
+          quantity: String(bi.quantity),
+          price: String(bi.price),
+        };
+      });
+      setEditItems(mappedItems);
+      setShowEditModal(true);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to prepare bill for editing' });
+    }
+  };
+
+  const handleEditAddItem = () => {
+    setEditItemTargetIdx(null);
+    setEditProductSearch('');
+    setShowEditProductPicker(true);
+  };
+
+  const handleEditSelectProduct = (product: any) => {
+    if (editItemTargetIdx !== null) {
+      setEditItems(prev => {
+        const next = [...prev];
+        next[editItemTargetIdx] = {
+          ...next[editItemTargetIdx],
+          product_id: product.id,
+          product: product,
+          price: next[editItemTargetIdx].price || String(product.price || '0'),
+        };
+        return next;
+      });
+    } else {
+      setEditItems(prev => [
+        ...prev,
+        {
+          id: String(Date.now()),
+          product_id: product.id,
+          product: product,
+          quantity: '1',
+          price: String(product.price || '0'),
+        },
+      ]);
+    }
+    setShowEditProductPicker(false);
+  };
+
+  const handleEditRemoveItem = (index: number) => {
+    setEditItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEditItemChange = (index: number, field: 'quantity' | 'price', val: string) => {
+    setEditItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: val };
+      return next;
+    });
+  };
+
+  const handleEditAddDiscount = () => {
+    if (editDiscounts.length < 5) {
+      setEditDiscounts(prev => [...prev, '']);
+    }
+  };
+
+  const handleEditDiscountChange = (index: number, val: string) => {
+    setEditDiscounts(prev => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  };
+
+  const handleEditRemoveDiscount = (index: number) => {
+    setEditDiscounts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const editTotals = (() => {
+    const gross = editItems.reduce((acc, item) => {
+      const q = parseFloat(item.quantity) || 0;
+      const p = parseFloat(item.price) || 0;
+      return acc + (q * p);
+    }, 0);
+
+    let running = gross;
+    const activeDiscounts = editDiscounts.filter(d => (parseFloat(d) || 0) > 0);
+    const discountBreakdown = editDiscounts.map((d, i) => {
+      const pct = parseFloat(d) || 0;
+      const amt = running * (pct / 100);
+      running -= amt;
+      const label = activeDiscounts.length > 1
+        ? `${t.discountStep} ${i + 1} (${pct}%)`
+        : `${t.discountStep} (${pct}%)`;
+      return { pct, amount: amt, label };
+    });
+
+    const net = Math.max(0, running);
+    return { gross, discountBreakdown, net };
+  })();
+
+  const editTotalPaid = parseFloat(editOriginalBill?.total_paid || 0) || 0;
+  const editTotalReturned = parseFloat(editOriginalBill?.total_returned || 0) || 0;
+  const editAdjustedNet = Math.max(0, editTotals.net - editTotalReturned);
+  const editRemaining = Math.max(0, editAdjustedNet - editTotalPaid);
+
+  const handleSaveEdit = async () => {
+    if (!editBillId) return;
+    if (!editPartyId) {
+      Toast.show({ type: 'error', text1: t.validationError, text2: 'Please select a party' });
+      return;
+    }
+    if (editItems.length === 0) {
+      Toast.show({ type: 'error', text1: t.validationError, text2: 'At least one item is required' });
+      return;
+    }
+    for (let i = 0; i < editItems.length; i++) {
+      const item = editItems[i];
+      const q = parseFloat(item.quantity);
+      const p = parseFloat(item.price);
+      if (isNaN(q) || q <= 0) {
+        Toast.show({ type: 'error', text1: t.validationError, text2: `Invalid quantity for ${item.product?.name || `Item ${i + 1}`}` });
+        return;
+      }
+      if (isNaN(p) || p < 0) {
+        Toast.show({ type: 'error', text1: t.validationError, text2: `Invalid price for ${item.product?.name || `Item ${i + 1}`}` });
+        return;
+      }
+    }
+
+    try {
+      setEditSubmitting(true);
+      const payload: UpdateBillPayload = {
+        party_id: editPartyId,
+        bill_date: editBillDate.toISOString(),
+        note: editNote.trim() || null,
+        discounts: editDiscounts.map(d => parseFloat(d)).filter(d => !isNaN(d) && d >= 0),
+        items: editItems.map(item => ({
+          product_id: item.product_id,
+          quantity: parseFloat(item.quantity),
+          price: parseFloat(item.price),
+        })),
+      };
+
+      const res = await BillService.updateBill(editBillId, payload);
+      setSelectedBill(res.data);
+      setShowEditModal(false);
+      Toast.show({ type: 'success', text1: t.success, text2: t.billUpdatedSuccess });
+      fetchData();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err.message || 'Failed to update bill';
+      Toast.show({ type: 'error', text1: t.saveFailed, text2: msg });
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -314,7 +602,7 @@ const HistoryScreen = () => {
                   <Text style={styles.summaryCardLabel}>{t.totalSales}</Text>
                 </View>
                 <Text style={[styles.summaryCardValue, { color: theme.colors.success }]}>
-                  ₹{totals.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {totals.sales < 0 ? `-₹${Math.abs(totals.sales).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `₹${totals.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                 </Text>
               </View>
               <View style={styles.summaryCard}>
@@ -323,7 +611,7 @@ const HistoryScreen = () => {
                   <Text style={styles.summaryCardLabel}>{t.totalBuy}</Text>
                 </View>
                 <Text style={[styles.summaryCardValue, { color: theme.colors.error }]}>
-                  ₹{totals.purchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {totals.purchases < 0 ? `-₹${Math.abs(totals.purchases).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `₹${totals.purchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                 </Text>
               </View>
             </View>
@@ -336,7 +624,6 @@ const HistoryScreen = () => {
                   <Text style={styles.netLabel}>{t.netBalance}</Text>
                   <Text style={[styles.netValue, { color: totals.net >= 0 ? theme.colors.success : theme.colors.error }]}>
                     ₹{Math.abs(totals.net).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    {totals.net < 0 ? ' (deficit)' : ''}
                   </Text>
                 </View>
               </View>
@@ -355,38 +642,48 @@ const HistoryScreen = () => {
           const outstanding = parseFloat(item.net_amount || 0);
           return (
             <TouchableOpacity style={styles.billCard} onPress={() => openBillDetail(item)}>
-              <View style={[styles.typeIndicator, { backgroundColor: cfg.bg }]}>
-                <Icon size={18} color={cfg.color} />
-              </View>
-              <View style={styles.billDetails}>
-                <Text style={styles.billParty}>{item.parties?.name || item.entities?.name || '—'}</Text>
-                <View style={styles.billMeta}>
-                  <View style={[styles.typeBadge, { backgroundColor: cfg.bg }]}>
-                    <Text style={[styles.typeBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+              <View style={styles.billCardTop}>
+                <View style={[styles.typeIndicator, { backgroundColor: cfg.iconBg || cfg.bg }]}>
+                  <Icon size={18} color={cfg.iconColor || cfg.color} />
+                </View>
+                <View style={styles.billDetails}>
+                  <Text style={styles.billParty} numberOfLines={1} ellipsizeMode="tail">
+                    {item.parties?.name || item.entities?.name || '—'}
+                  </Text>
+                  <View style={styles.billMeta}>
+                    <View style={[styles.typeBadge, { backgroundColor: cfg.badgeBg || cfg.bg }]}>
+                      <Text style={[styles.typeBadgeText, { color: cfg.badgeColor || cfg.color }]}>{cfg.label}</Text>
+                    </View>
+                    {item.original_bill_id && (
+                      <View style={styles.refBadge}>
+                        <Text style={styles.refBadgeText}>Ref #{item.original_bill_id}</Text>
+                      </View>
+                    )}
+                    {item.bill_items?.length > 0 && (
+                      <Text style={styles.billItemCount}>{item.bill_items.length} item(s)</Text>
+                    )}
                   </View>
-                  <Text style={styles.billDate}>{formatIST(item.bill_date)}</Text>
-                  {item.original_bill_id && (
-                    <Text style={[styles.billDate, { color: theme.colors.primary, fontWeight: '700' }]}>
-                      (Ref #{item.original_bill_id})
+                </View>
+                <View style={styles.billAmount}>
+                  <Text style={[styles.billNet, { color: '#000000' }]}>
+                    ₹{parseFloat(item.adjusted_net_amount ?? item.net_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </Text>
+                  {item.total_returned > 0 && (
+                    <Text style={styles.billDiscount}>
+                      -₹{parseFloat(item.total_returned).toFixed(0)} {t.returnsApplied}
                     </Text>
                   )}
                 </View>
-                {item.bill_items?.length > 0 && (
-                  <Text style={styles.billItemCount}>{item.bill_items.length} item(s)</Text>
-                )}
               </View>
-              <View style={styles.billAmount}>
-                <Text style={[styles.billNet, { color: cfg.color }]}>
-                  ₹{parseFloat(item.adjusted_net_amount ?? item.net_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </Text>
-                {item.total_returned > 0 && (
-                  <Text style={[styles.billDiscount, { color: theme.colors.error }]}>
-                    -₹{parseFloat(item.total_returned).toFixed(0)} {t.returnsApplied}
-                  </Text>
-                )}
-                {(item.discounts?.length > 0 && item.discounts.some((d: number) => d > 0)) && (
-                  <Text style={styles.billDiscount}>-{item.discounts.join('%, ')}%</Text>
-                )}
+
+              <View style={styles.billCardDivider} />
+
+              <View style={styles.billCardBottom}>
+                <View style={styles.timestampRow}>
+                  <Clock size={12} color={theme.colors.textSecondary} />
+                  <Text style={styles.billDate}>{formatIST(item.bill_date)}</Text>
+                </View>
+                <Text style={styles.billIdText}>#{item.id}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -412,7 +709,13 @@ const HistoryScreen = () => {
                   <X size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.detailTitle}>{t.billDetails}</Text>
-                <View style={{ width: 24 }} />
+                <TouchableOpacity
+                  style={styles.detailEditHeaderBtn}
+                  onPress={() => openEditModal(selectedBill)}
+                  activeOpacity={0.7}
+                >
+                  <Edit2 size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
               </View>
 
               <ScrollView contentContainerStyle={styles.detailContent}>
@@ -427,8 +730,8 @@ const HistoryScreen = () => {
                       </View>
                       <View style={styles.detailMetaRow}>
                         <Text style={styles.detailMetaLabel}>{t.typeLabel}</Text>
-                        <View style={[styles.typeBadge, { backgroundColor: cfg.bg }]}>
-                          <Text style={[styles.typeBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                        <View style={[styles.typeBadge, { backgroundColor: cfg.badgeBg || cfg.bg }]}>
+                          <Text style={[styles.typeBadgeText, { color: cfg.badgeColor || cfg.color }]}>{cfg.label}</Text>
                         </View>
                       </View>
                       <View style={styles.detailMetaRow}>
@@ -477,30 +780,45 @@ const HistoryScreen = () => {
                     <Text style={styles.amountLabel}>{t.totalBeforeDiscount}</Text>
                     <Text style={styles.amountValue}>₹{parseFloat(selectedBill.total_amount).toFixed(2)}</Text>
                   </View>
-                  {(selectedBill.discounts || []).map((d: number, i: number) => d > 0 && (
-                    <View key={i} style={styles.amountRow}>
-                      <Text style={[styles.amountLabel, { color: theme.colors.error }]}>
-                        {t.discountStep} {i + 1}: {d}%
-                      </Text>
-                    </View>
-                  ))}
+                  {(() => {
+                    const activeDiscounts = (selectedBill.discounts || []).filter((d: any) => (parseFloat(d) || 0) > 0);
+                    let running = parseFloat(selectedBill.total_amount || 0);
+                    return activeDiscounts.map((d: any, i: number) => {
+                      const pct = parseFloat(d) || 0;
+                      const discAmount = running * (pct / 100);
+                      running -= discAmount;
+                      const label = activeDiscounts.length > 1
+                        ? `${t.discountStep} ${i + 1} (${pct}%)`
+                        : `${t.discountStep} (${pct}%)`;
+                      return (
+                        <View key={i} style={styles.amountRow}>
+                          <Text style={styles.amountLabel}>
+                            {label}
+                          </Text>
+                          <Text style={[styles.amountValue, { fontWeight: '600' }]}>
+                            - ₹{discAmount.toFixed(2)}
+                          </Text>
+                        </View>
+                      );
+                    });
+                  })()}
                   <View style={[styles.amountRow, styles.amountTotalRow]}>
-                    <Text style={styles.amountTotalLabel}>{selectedBill.total_returned > 0 ? 'Original Total' : t.netAmount}</Text>
-                    <Text style={[styles.amountTotalValue, { color: TYPE_CONFIG[selectedBill.type as BillType]?.color || theme.colors.primary }]}>
+                    <Text style={[styles.amountTotalLabel, { color: '#000000' }]}>{selectedBill.total_returned > 0 ? 'Original Total' : t.netAmount}</Text>
+                    <Text style={[styles.amountTotalValue, { color: '#000000' }]}>
                       ₹{parseFloat(selectedBill.net_amount).toFixed(2)}
                     </Text>
                   </View>
                   {selectedBill.total_returned > 0 && (
                     <>
                       <View style={styles.amountRow}>
-                        <Text style={[styles.amountLabel, { color: theme.colors.error }]}>{t.returnsApplied}</Text>
-                        <Text style={[styles.amountValue, { color: theme.colors.error, fontWeight: '700' }]}>
+                        <Text style={styles.amountLabel}>{t.returnsApplied}</Text>
+                        <Text style={[styles.amountValue, { fontWeight: '700' }]}>
                           - ₹{parseFloat(selectedBill.total_returned).toFixed(2)}
                         </Text>
                       </View>
-                      <View style={[styles.amountRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6 }]}>
-                        <Text style={[styles.amountTotalLabel, { fontWeight: '700' }]}>{t.adjustedBillAmount}</Text>
-                        <Text style={[styles.amountTotalValue, { fontWeight: '800', color: theme.colors.primary }]}>
+                      <View style={[styles.amountRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6, alignItems: 'center' }]}>
+                        <Text style={[styles.amountTotalLabel, { fontWeight: '700', color: '#000000' }]}>{t.adjustedBillAmount}</Text>
+                        <Text style={[styles.amountTotalValue, { fontWeight: '800', color: '#000000' }]}>
                           ₹{parseFloat(selectedBill.adjusted_net_amount).toFixed(2)}
                         </Text>
                       </View>
@@ -514,11 +832,11 @@ const HistoryScreen = () => {
                     <Text style={styles.sectionLabel}>{t.linkedReturnBills}</Text>
                     {selectedBill.return_bills.map((rb: any) => (
                       <View key={rb.id} style={styles.paymentRow}>
-                        <View style={[styles.paymentModeIcon, { backgroundColor: theme.colors.error + '15' }]}>
-                          <RotateCcw size={16} color={theme.colors.error} />
+                        <View style={styles.paymentModeIcon}>
+                          <RotateCcw size={16} color={theme.colors.textSecondary} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.paymentAmount, { color: theme.colors.error }]}>
+                          <Text style={styles.paymentAmount}>
                             - ₹{parseFloat(rb.net_amount).toFixed(2)}
                           </Text>
                           <Text style={styles.paymentMeta}>
@@ -558,9 +876,9 @@ const HistoryScreen = () => {
                 {/* Outstanding */}
                 <View style={[
                   styles.outstandingCard,
-                  { backgroundColor: (selectedBill.outstanding || 0) > 0.01
-                      ? theme.colors.error + '12'
-                      : theme.colors.success + '12' }
+                  {
+                    backgroundColor: theme.colors.surface
+                  }
                 ]}>
                   <View style={styles.outstandingRow}>
                     <Text style={styles.outstandingLabel}>{t.totalPaid}</Text>
@@ -572,27 +890,39 @@ const HistoryScreen = () => {
                     <Text style={styles.outstandingLabel}>{t.outstanding}</Text>
                     <Text style={[
                       styles.outstandingValue,
-                      { color: (selectedBill.outstanding || 0) > 0.01 ? theme.colors.error : theme.colors.success }
+                      { color: (selectedBill.outstanding || 0) > 0.01 ? theme.colors.error : theme.colors.text }
                     ]}>
                       ₹{parseFloat(selectedBill.outstanding || 0).toFixed(2)}
                     </Text>
                   </View>
                 </View>
 
-                {/* Record payment button */}
-                {(selectedBill.outstanding || 0) > 0.01 && (
+                {/* Actions: Edit Bill & Record Payment */}
+                <View style={styles.detailActionButtonsRow}>
                   <TouchableOpacity
-                    style={styles.recordPaymentBtn}
-                    onPress={() => {
-                      setPayAmount(parseFloat(selectedBill.outstanding || 0).toFixed(2));
-                      setPayMode('cash');
-                      setPayNote('');
-                      setShowPaymentModal(true);
-                    }}
+                    style={styles.detailEditActionBtn}
+                    onPress={() => openEditModal(selectedBill)}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.recordPaymentText}>{t.recordPayment}</Text>
+                    <Edit2 size={16} color={theme.colors.primary} />
+                    <Text style={styles.detailEditActionBtnText}>{t.editBill}</Text>
                   </TouchableOpacity>
-                )}
+
+                  {(selectedBill.outstanding || 0) > 0.01 && (
+                    <TouchableOpacity
+                      style={styles.recordPaymentBtn}
+                      onPress={() => {
+                        setPayAmount('');
+                        setPayMode('cash');
+                        setPayNote('');
+                        setShowPaymentModal(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.recordPaymentText}>{t.recordPayment}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </ScrollView>
             </>
           )}
@@ -612,7 +942,10 @@ const HistoryScreen = () => {
               </View>
 
               <Text style={styles.payModalOutstanding}>
-                {t.outstanding}: ₹{parseFloat(selectedBill?.outstanding || 0).toFixed(2)}
+                <Text style={{ color: theme.colors.textSecondary }}>{t.outstanding}: </Text>
+                <Text style={{ color: (selectedBill?.outstanding || 0) > 0.01 ? theme.colors.error : theme.colors.text, fontWeight: '700' }}>
+                  ₹{parseFloat(selectedBill?.outstanding || 0).toFixed(2)}
+                </Text>
               </Text>
 
               <Text style={styles.payLabel}>{t.paymentAmount}</Text>
@@ -804,6 +1137,365 @@ const HistoryScreen = () => {
           }}
         />
       )}
+
+      {/* ─── Edit Bill Modal ─── */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <SafeAreaView style={styles.detailContainer}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+          >
+            {/* Edit Header */}
+            <View style={styles.detailHeader}>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.detailTitle}>{t.editBill} #{editBillId}</Text>
+              <TouchableOpacity
+                onPress={handleSaveEdit}
+                disabled={editSubmitting}
+                style={[styles.editSaveHeaderBtn, editSubmitting && { opacity: 0.6 }]}
+              >
+                {editSubmitting ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Text style={styles.editSaveHeaderText}>{t.saveItem}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.editModalContent}>
+              {/* Type Badge & Date */}
+              <View style={styles.editMetaSection}>
+                <View style={styles.editRowBetween}>
+                  <View style={[styles.typeBadge, { backgroundColor: TYPE_CONFIG[editBillType]?.badgeBg || TYPE_CONFIG[editBillType]?.bg }]}>
+                    <Text style={[styles.typeBadgeText, { color: TYPE_CONFIG[editBillType]?.badgeColor || TYPE_CONFIG[editBillType]?.color }]}>
+                      {TYPE_CONFIG[editBillType]?.label}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editDateBtn}
+                    onPress={() => setShowEditDatePicker(true)}
+                  >
+                    <Calendar size={14} color={theme.colors.primary} />
+                    <Text style={styles.editDateText}>
+                      {formatDate(editBillDate)}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Party Selector */}
+                <Text style={styles.editFieldLabel}>{t.partyLabel} *</Text>
+                <TouchableOpacity
+                  style={styles.editPartyPickerBtn}
+                  onPress={() => {
+                    setEditPartySearch('');
+                    setShowEditPartyPicker(true);
+                  }}
+                >
+                  <Text style={[styles.editPartyPickerText, !editSelectedParty && { color: theme.colors.textSecondary }]}>
+                    {editSelectedParty?.name || t.selectParty}
+                  </Text>
+                  <ChevronDown size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+                {/* Note */}
+                <Text style={styles.editFieldLabel}>{t.note}</Text>
+                <TextInput
+                  style={styles.editNoteInput}
+                  placeholder="Optional note..."
+                  value={editNote}
+                  onChangeText={setEditNote}
+                />
+              </View>
+
+              {/* Items Section */}
+              <View style={styles.editSectionHeader}>
+                <Text style={styles.sectionLabel}>{t.lineItems}</Text>
+                <TouchableOpacity
+                  style={styles.editAddItemBtn}
+                  onPress={handleEditAddItem}
+                >
+                  <Plus size={14} color={theme.colors.primary} />
+                  <Text style={styles.editAddItemBtnText}>{t.addItem.replace(/^\+\s*/, '')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {editItems.map((item, idx) => (
+                <View key={item.id || idx} style={styles.editItemCard}>
+                  <View style={styles.editItemHeaderRow}>
+                    <TouchableOpacity
+                      style={styles.editItemProductSelect}
+                      onPress={() => {
+                        setEditItemTargetIdx(idx);
+                        setEditProductSearch('');
+                        setShowEditProductPicker(true);
+                      }}
+                    >
+                      <Text style={styles.editItemProductName} numberOfLines={1}>
+                        {item.product?.name || `Product #${item.product_id}`}
+                      </Text>
+                      <ChevronDown size={14} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleEditRemoveItem(idx)}
+                      style={styles.editItemRemoveBtn}
+                    >
+                      <Trash2 size={16} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.editItemInputsRow}>
+                    <View style={styles.editInputGroup}>
+                      <Text style={styles.editSmallLabel}>{t.quantity}</Text>
+                      <TextInput
+                        style={styles.editNumInput}
+                        keyboardType="decimal-pad"
+                        value={item.quantity}
+                        onChangeText={(val) => handleEditItemChange(idx, 'quantity', val)}
+                        placeholder="0"
+                      />
+                    </View>
+                    <View style={styles.editInputGroup}>
+                      <Text style={styles.editSmallLabel}>{t.price}</Text>
+                      <TextInput
+                        style={styles.editNumInput}
+                        keyboardType="decimal-pad"
+                        value={item.price}
+                        onChangeText={(val) => handleEditItemChange(idx, 'price', val)}
+                        placeholder="0.00"
+                      />
+                    </View>
+                    <View style={styles.editSubTotalGroup}>
+                      <Text style={styles.editSmallLabel}>Subtotal</Text>
+                      <Text style={styles.editSubTotalText}>
+                        ₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              {/* Discounts Section */}
+              <View style={styles.editSectionHeader}>
+                <Text style={styles.sectionLabel}>{t.discountPercent}</Text>
+                {editDiscounts.length < 5 && (
+                  <TouchableOpacity
+                    style={styles.editAddItemBtn}
+                    onPress={handleEditAddDiscount}
+                  >
+                    <Plus size={14} color={theme.colors.primary} />
+                    <Text style={styles.editAddItemBtnText}>{t.addDiscount.replace(/^\+\s*/, '')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {editDiscounts.map((disc, idx) => (
+                <View key={idx} style={styles.editDiscountRow}>
+                  <Text style={styles.editDiscountLabel}>{t.discountStep} {idx + 1} (%)</Text>
+                  <TextInput
+                    style={styles.editDiscountInput}
+                    keyboardType="decimal-pad"
+                    value={disc}
+                    onChangeText={(val) => handleEditDiscountChange(idx, val)}
+                    placeholder="0"
+                  />
+                  <TouchableOpacity
+                    onPress={() => handleEditRemoveDiscount(idx)}
+                    style={styles.editItemRemoveBtn}
+                  >
+                    <Trash2 size={16} color={theme.colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {/* Summary Card */}
+              <View style={styles.amountCard}>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>{t.totalBeforeDiscount}</Text>
+                  <Text style={styles.amountValue}>₹{editTotals.gross.toFixed(2)}</Text>
+                </View>
+                {editTotals.discountBreakdown.filter(d => d.pct > 0).map((d, i) => (
+                  <View key={i} style={styles.amountRow}>
+                    <Text style={styles.amountLabel}>
+                      {d.label}
+                    </Text>
+                    <Text style={[styles.amountValue, { fontWeight: '600' }]}>
+                      - ₹{d.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={[styles.amountRow, styles.amountTotalRow]}>
+                  <Text style={[styles.amountTotalLabel, { color: '#000000' }]}>{editTotalReturned > 0 ? 'Original Total' : t.netAmount}</Text>
+                  <Text style={[styles.amountTotalValue, { color: '#000000' }]}>
+                    ₹{editTotals.net.toFixed(2)}
+                  </Text>
+                </View>
+                {editTotalReturned > 0 && (
+                  <>
+                    <View style={styles.amountRow}>
+                      <Text style={styles.amountLabel}>{t.returnsApplied}</Text>
+                      <Text style={[styles.amountValue, { fontWeight: '700' }]}>
+                        - ₹{editTotalReturned.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={[styles.amountRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6, alignItems: 'center' }]}>
+                      <Text style={[styles.amountTotalLabel, { fontWeight: '700', color: '#000000' }]}>{t.adjustedBillAmount}</Text>
+                      <Text style={[styles.amountTotalValue, { fontWeight: '800', color: '#000000' }]}>
+                        ₹{editAdjustedNet.toFixed(2)}
+                      </Text>
+                    </View>
+                  </>
+                )}
+                {editTotalPaid > 0 && (
+                  <View style={styles.amountRow}>
+                    <Text style={styles.amountLabel}>{t.totalPaid}</Text>
+                    <Text style={[styles.amountValue, { color: theme.colors.success }]}>
+                      ₹{editTotalPaid.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.amountRow, { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 8, marginTop: 4, alignItems: 'center' }]}>
+                  <Text style={[styles.amountTotalLabel, { fontWeight: '700' }]}>{t.outstanding}</Text>
+                  <Text style={[styles.amountTotalValue, { color: editRemaining > 0.01 ? theme.colors.error : theme.colors.text, fontWeight: '800' }]}>
+                    ₹{editRemaining.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.editActionsContainer}>
+                <TouchableOpacity
+                  style={styles.editDiscardBtn}
+                  onPress={() => setShowEditModal(false)}
+                  disabled={editSubmitting}
+                >
+                  <Text style={styles.editDiscardText}>{t.discard}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.editSaveBtn, editSubmitting && { opacity: 0.7 }]}
+                  onPress={handleSaveEdit}
+                  disabled={editSubmitting}
+                >
+                  {editSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.editSaveBtnText}>{t.updateBill}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Date Picker for Edit */}
+      {showEditDatePicker && (
+        <DateTimePicker
+          value={editBillDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          onChange={(_, date) => {
+            setShowEditDatePicker(false);
+            if (date) setEditBillDate(date);
+          }}
+        />
+      )}
+
+      {/* Select Party Modal for Edit */}
+      <Modal
+        visible={showEditPartyPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditPartyPicker(false)}
+      >
+        <View style={styles.pickerModalOverlay}>
+          <View style={[styles.pickerModalCard, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>{t.selectParty}</Text>
+              <TouchableOpacity onPress={() => setShowEditPartyPicker(false)}>
+                <X size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickerSearchBox}>
+              <Search size={16} color={theme.colors.textSecondary} />
+              <TextInput
+                style={styles.pickerSearchInput}
+                placeholder={t.searchPartyFilter}
+                value={editPartySearch}
+                onChangeText={setEditPartySearch}
+              />
+            </View>
+            <FlatList
+              data={parties.filter(p => p.name.toLowerCase().includes(editPartySearch.toLowerCase()))}
+              keyExtractor={p => String(p.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.pickerListItem}
+                  onPress={() => {
+                    setEditPartyId(item.id);
+                    setEditSelectedParty(item);
+                    setShowEditPartyPicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>{item.name}</Text>
+                  {editPartyId === item.id && <Check size={18} color={theme.colors.primary} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Select Product Modal for Edit */}
+      <Modal
+        visible={showEditProductPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditProductPicker(false)}
+      >
+        <View style={styles.pickerModalOverlay}>
+          <View style={[styles.pickerModalCard, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>{t.selectProduct}</Text>
+              <TouchableOpacity onPress={() => setShowEditProductPicker(false)}>
+                <X size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickerSearchBox}>
+              <Search size={16} color={theme.colors.textSecondary} />
+              <TextInput
+                style={styles.pickerSearchInput}
+                placeholder={t.searchProductFilter}
+                value={editProductSearch}
+                onChangeText={setEditProductSearch}
+              />
+            </View>
+            <FlatList
+              data={products.filter(p => p.name.toLowerCase().includes(editProductSearch.toLowerCase()))}
+              keyExtractor={p => String(p.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.pickerListItem}
+                  onPress={() => handleEditSelectProduct(item)}
+                >
+                  <View>
+                    <Text style={styles.pickerItemText}>{item.name}</Text>
+                    <Text style={styles.pickerItemSub}>
+                      Stock: {item.quantity}  •  ₹{parseFloat(item.price || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -848,18 +1540,113 @@ const styles = StyleSheet.create({
   exportBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
   // Bill card
-  billCard: { backgroundColor: theme.colors.surface, flexDirection: 'row', alignItems: 'center', gap: 12, padding: theme.spacing.md, borderRadius: theme.borderRadius.md, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.border },
-  typeIndicator: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  billDetails: { flex: 1 },
-  billParty: { ...theme.typography.body, fontWeight: '700' },
-  billMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  typeBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  billDate: { ...theme.typography.caption, color: theme.colors.textSecondary, fontSize: 11 },
-  billItemCount: { ...theme.typography.caption, color: theme.colors.textSecondary, marginTop: 2 },
-  billAmount: { alignItems: 'flex-end' },
-  billNet: { ...theme.typography.h3, fontWeight: '800' },
-  billDiscount: { ...theme.typography.caption, color: theme.colors.error, fontSize: 11 },
+  billCard: {
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  billCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  typeIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  billDetails: {
+    flex: 1,
+    minWidth: 0,
+  },
+  billParty: {
+    ...theme.typography.body,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  billMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  typeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  refBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary + '15',
+  },
+  refBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  billItemCount: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+  },
+  billAmount: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginLeft: 8,
+  },
+  billNet: {
+    ...theme.typography.h3,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  billDiscount: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  billCardDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: 10,
+    opacity: 0.6,
+  },
+  billCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timestampRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  billDate: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+  },
+  billIdText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 11,
+  },
 
   // Bill Detail
   detailContainer: { flex: 1, backgroundColor: theme.colors.background },
@@ -876,20 +1663,20 @@ const styles = StyleSheet.create({
   lineItemMeta: { ...theme.typography.caption, color: theme.colors.textSecondary, marginTop: 2 },
   lineItemTotal: { ...theme.typography.body, fontWeight: '700', color: theme.colors.text },
   amountCard: { backgroundColor: theme.colors.surface, borderRadius: 12, padding: theme.spacing.md, gap: 10, borderWidth: 1, borderColor: theme.colors.border },
-  amountRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  amountLabel: { ...theme.typography.body, color: theme.colors.textSecondary },
-  amountValue: { ...theme.typography.body, fontWeight: '600' },
-  amountTotalRow: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 4 },
-  amountTotalLabel: { ...theme.typography.body, fontWeight: '700' },
-  amountTotalValue: { ...theme.typography.h2, fontWeight: '800' },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  amountLabel: { ...theme.typography.body, color: theme.colors.textSecondary, flex: 1 },
+  amountValue: { ...theme.typography.body, fontWeight: '600', textAlign: 'right' },
+  amountTotalRow: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 4, alignItems: 'center' },
+  amountTotalLabel: { ...theme.typography.body, fontWeight: '700', color: '#000000', flex: 1 },
+  amountTotalValue: { ...theme.typography.h2, fontWeight: '800', color: '#000000', textAlign: 'right' },
   paymentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   paymentModeIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
   paymentAmount: { ...theme.typography.body, fontWeight: '700' },
   paymentMeta: { ...theme.typography.caption, color: theme.colors.textSecondary, marginTop: 2 },
   outstandingCard: { borderRadius: 12, padding: theme.spacing.md, gap: 10, borderWidth: 1, borderColor: theme.colors.border },
-  outstandingRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  outstandingLabel: { ...theme.typography.body, fontWeight: '600' },
-  outstandingValue: { ...theme.typography.h3, fontWeight: '800' },
+  outstandingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  outstandingLabel: { ...theme.typography.body, fontWeight: '600', flex: 1 },
+  outstandingValue: { ...theme.typography.h3, fontWeight: '800', textAlign: 'right' },
   recordPaymentBtn: { backgroundColor: theme.colors.primary, padding: 16, borderRadius: theme.borderRadius.md, alignItems: 'center' },
   recordPaymentText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
@@ -898,7 +1685,7 @@ const styles = StyleSheet.create({
   payModalCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: theme.spacing.lg, gap: 14 },
   payModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   payModalTitle: { ...theme.typography.h2 },
-  payModalOutstanding: { ...theme.typography.body, color: theme.colors.error, fontWeight: '700' },
+  payModalOutstanding: { ...theme.typography.body, fontWeight: '700' },
   payLabel: { ...theme.typography.caption, fontWeight: '700', textTransform: 'uppercase', color: theme.colors.textSecondary, letterSpacing: 0.5 },
   payInput: { backgroundColor: theme.colors.surface, padding: 14, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.border, ...theme.typography.body },
   payModeRow: { flexDirection: 'row', gap: 12 },
@@ -935,6 +1722,323 @@ const styles = StyleSheet.create({
   clearBtnText: { fontWeight: '700', color: theme.colors.text },
   applyBtn: { flex: 2, backgroundColor: theme.colors.primary, padding: 14, borderRadius: theme.borderRadius.md, alignItems: 'center' },
   applyBtnText: { color: '#fff', fontWeight: '700' },
+
+  // Detail Modal Actions
+  detailEditHeaderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  detailEditActionBtn: {
+    flex: 1,
+    padding: 16,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  detailEditActionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+
+  // Edit Bill Modal
+  editSaveHeaderBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary + '15',
+  },
+  editSaveHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  editModalContent: {
+    padding: theme.spacing.lg,
+    paddingBottom: 40,
+    gap: 14,
+  },
+  editMetaSection: {
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  editRowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editDateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  editDateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  editFieldLabel: {
+    ...theme.typography.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.5,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  editPartyPickerBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#fff',
+  },
+  editPartyPickerText: {
+    ...theme.typography.body,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  editNoteInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  editSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  editAddItemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary + '15',
+  },
+  editAddItemBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  editItemCard: {
+    backgroundColor: theme.colors.surface,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 8,
+  },
+  editItemHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  editItemProductSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: 10,
+  },
+  editItemProductName: {
+    ...theme.typography.body,
+    fontWeight: '700',
+    color: theme.colors.text,
+    flexShrink: 1,
+  },
+  editItemRemoveBtn: {
+    padding: 6,
+  },
+  editItemInputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-end',
+  },
+  editInputGroup: {
+    flex: 1,
+  },
+  editSmallLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  editNumInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  editSubTotalGroup: {
+    width: 80,
+    alignItems: 'flex-end',
+    paddingBottom: 8,
+  },
+  editSubTotalText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  editDiscountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.colors.surface,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  editDiscountLabel: {
+    ...theme.typography.caption,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    flex: 1,
+  },
+  editDiscountInput: {
+    width: 70,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    padding: 6,
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  editActionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  editDiscardBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+  },
+  editDiscardText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  editSaveBtn: {
+    flex: 2,
+    padding: 14,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editSaveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // Picker Modals for Edit
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '75%',
+    padding: theme.spacing.lg,
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pickerModalTitle: {
+    ...theme.typography.h2,
+  },
+  pickerSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  pickerSearchInput: {
+    flex: 1,
+    height: 40,
+    ...theme.typography.body,
+  },
+  pickerListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  pickerItemText: {
+    ...theme.typography.body,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  pickerItemSub: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
 
   // note key from translations used inline
   note: {},

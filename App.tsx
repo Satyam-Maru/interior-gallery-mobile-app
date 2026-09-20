@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Image, Animated, Text, Platform } from 'react-native';
+import { StyleSheet, View, Image, Animated, Platform, TouchableOpacity } from 'react-native';
+import { Text } from './src/components';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { createMaterialTopTabNavigator, MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { theme } from './src/theme';
 import { LayoutDashboard, Package, Receipt, History as HistoryIcon, Users } from 'lucide-react-native';
 import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
@@ -117,51 +118,89 @@ const Tab = createMaterialTopTabNavigator();
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
+function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = insets.bottom;
+  const tabHeight = 56 + (bottomInset > 0 ? bottomInset : 8);
+
+  return (
+    <View style={[styles.tabBar, { height: tabHeight, paddingBottom: bottomInset > 0 ? bottomInset : 6 }]}>
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const rawLabel =
+          options.tabBarLabel !== undefined
+            ? options.tabBarLabel
+            : options.title !== undefined
+            ? options.title
+            : route.name;
+
+        const isFocused = state.index === index;
+        const color = isFocused ? theme.colors.primary : theme.colors.textSecondary;
+        const labelText =
+          typeof rawLabel === 'function'
+            ? rawLabel({ focused: isFocused, color, children: '' })
+            : rawLabel;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
+        const onLongPress = () => {
+          navigation.emit({
+            type: 'tabLongPress',
+            target: route.key,
+          });
+        };
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            accessibilityRole="button"
+            accessibilityState={isFocused ? { selected: true } : {}}
+            accessibilityLabel={typeof options.tabBarAccessibilityLabel === 'string' ? options.tabBarAccessibilityLabel : undefined}
+            testID={options.tabBarButtonTestID}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+          >
+            {options.tabBarIcon && options.tabBarIcon({ color, focused: isFocused })}
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.tabLabel,
+                {
+                  color,
+                  fontWeight: isFocused ? '700' : '500',
+                },
+              ]}
+            >
+              {labelText}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 function MainTabs() {
   const { t } = useLanguage();
-  const insets = useSafeAreaInsets();
-
-  // Uplift bottom tab bar to fully accommodate devices with bottom software navigation
-  // (Android 3-button navigation, gesture navigation pill, iOS home indicator)
-  const bottomInset = insets.bottom;
-  const tabHeight = 58 + (bottomInset > 0 ? bottomInset : 8);
 
   return (
     <Tab.Navigator
       backBehavior="history"
       tabBarPosition="bottom"
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        tabBarShowIcon: true,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarIndicatorStyle: { height: 0 }, // Hide the indicator for a bottom-tab look
-        tabBarStyle: {
-          backgroundColor: theme.colors.background,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: 1,
-          height: tabHeight,
-          paddingBottom: bottomInset > 0 ? bottomInset : 6,
-          paddingTop: 6,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.08,
-          shadowRadius: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-          textTransform: 'none',
-          marginTop: 2,
-          marginBottom: 0,
-        },
-        tabBarItemStyle: {
-          paddingHorizontal: 0,
-          paddingVertical: 2,
-          height: 52,
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
         swipeEnabled: false,
       }}
     >
@@ -295,6 +334,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.background,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: 1,
+    paddingTop: 6,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: 'center',
   },
   splashOverlay: {
     ...StyleSheet.absoluteFillObject,
