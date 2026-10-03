@@ -16,6 +16,8 @@ import ProductsScreen from './src/screens/Products/ProductsScreen';
 import ManagementScreen from './src/screens/Management/ManagementScreen';
 import StockEntryScreen from './src/screens/StockEntry/StockEntryScreen';
 import HistoryScreen from './src/screens/History/HistoryScreen';
+import CompanySelectScreen from './src/screens/CompanySelect/CompanySelectScreen';
+import { CompanyProvider, useCompany } from './src/context/CompanyContext';
 
 const toastConfig = {
   success: (props: any) => (
@@ -192,7 +194,7 @@ function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps
   );
 }
 
-function MainTabs() {
+function MainTabs({ company, onSwitchCompany }: { company: string; onSwitchCompany: () => void }) {
   const { t } = useLanguage();
 
   return (
@@ -248,6 +250,64 @@ function MainTabs() {
   );
 }
 
+// Inner component that reads company from context
+function AppContent({ appIsReady, splashVisible, fadeAnim, onLayout }: {
+  appIsReady: boolean;
+  splashVisible: boolean;
+  fadeAnim: Animated.Value;
+  onLayout: () => void;
+}) {
+  const { company, setCompany } = useCompany();
+
+  return (
+    <View style={styles.container} onLayout={onLayout}>
+      <StatusBar style="dark" />
+
+      {/* Company selection — shown until a company is picked */}
+      {!splashVisible && !company ? (
+        <CompanySelectScreen onSelect={(key) => setCompany(key)} />
+      ) : (
+        <NavigationContainer theme={{
+          ...DefaultTheme,
+          colors: {
+            ...DefaultTheme.colors,
+            primary: theme.colors.primary,
+            background: theme.colors.background,
+            card: theme.colors.background,
+            text: theme.colors.text,
+            border: theme.colors.border,
+            notification: theme.colors.accent,
+          }
+        }}>
+          {company && (
+            <MainTabs
+              company={company}
+              onSwitchCompany={() => setCompany(null)}
+            />
+          )}
+        </NavigationContainer>
+      )}
+
+      {splashVisible && (
+        <Animated.View
+          style={[
+            styles.splashOverlay,
+            { opacity: fadeAnim }
+          ]}
+        >
+          <Image
+            source={require('./assets/Logo.jpeg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.loadingText}>Loading Premium Experience...</Text>
+        </Animated.View>
+      )}
+      <Toast config={toastConfig} topOffset={Platform.OS === 'ios' ? 55 : 45} />
+    </View>
+  );
+}
+
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
@@ -289,43 +349,17 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LanguageProvider>
-        <SafeAreaProvider>
-          <View style={styles.container} onLayout={onLayoutRootView}>
-          <StatusBar style="dark" />
-          <NavigationContainer theme={{
-            ...DefaultTheme,
-            colors: {
-              ...DefaultTheme.colors,
-              primary: theme.colors.primary,
-              background: theme.colors.background,
-              card: theme.colors.background,
-              text: theme.colors.text,
-              border: theme.colors.border,
-              notification: theme.colors.accent,
-            }
-          }}>
-            <MainTabs />
-          </NavigationContainer>
-
-          {splashVisible && (
-            <Animated.View 
-              style={[
-                styles.splashOverlay, 
-                { opacity: fadeAnim }
-              ]}
-            >
-              <Image 
-                source={require('./assets/Logo.jpeg')} 
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.loadingText}>Loading Premium Experience...</Text>
-            </Animated.View>
-          )}
-          <Toast config={toastConfig} topOffset={Platform.OS === 'ios' ? 55 : 45} />
-        </View>
-      </SafeAreaProvider>
-    </LanguageProvider>
+        <CompanyProvider>
+          <SafeAreaProvider>
+            <AppContent
+              appIsReady={appIsReady}
+              splashVisible={splashVisible}
+              fadeAnim={fadeAnim}
+              onLayout={onLayoutRootView}
+            />
+          </SafeAreaProvider>
+        </CompanyProvider>
+      </LanguageProvider>
     </GestureHandlerRootView>
   );
 }
@@ -341,6 +375,8 @@ const styles = StyleSheet.create({
     borderTopColor: theme.colors.border,
     borderTopWidth: 1,
     paddingTop: 6,
+    paddingHorizontal: 4,
+    gap: 2,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
@@ -352,6 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   tabLabel: {
     fontSize: 10,

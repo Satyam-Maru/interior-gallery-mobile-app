@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, FlatList, ActivityIndicator,
   TouchableOpacity, Modal, ScrollView,
-  BackHandler, Platform, KeyboardAvoidingView
+  BackHandler, Platform, KeyboardAvoidingView, Linking, Alert
 } from 'react-native';
 import { Text, TextInput } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useLanguage } from '../../context/LanguageContext';
+import { FontAwesome } from '@expo/vector-icons';
 
 type BillType = 'purchase' | 'sell' | 'purchase_return' | 'sell_return';
 
@@ -114,6 +115,9 @@ const HistoryScreen = () => {
   const [payMode, setPayMode] = useState<'cash' | 'online'>('cash');
   const [payNote, setPayNote] = useState('');
   const [paySubmitting, setPaySubmitting] = useState(false);
+
+  // ── WhatsApp sharing ─────────────────────────────────────
+  const [whatsappSharingBillId, setWhatsappSharingBillId] = useState<number | null>(null);
 
   // ── Products for Edit ────────────────────────────────────
   const [products, setProducts] = useState<any[]>([]);
@@ -495,6 +499,93 @@ const HistoryScreen = () => {
     }
   };
 
+  const buildWhatsAppMessage = (bill: any): string => {
+    const cfg = TYPE_CONFIG[bill.type as BillType] || TYPE_CONFIG.purchase;
+    const party = bill.parties?.name || bill.entities?.name || '—';
+    const date = formatIST(bill.bill_date);
+
+    const itemLines = (bill.bill_items || []).map((item: any) =>
+      `  - ${item.products?.name || `Product #${item.product_id}`}: ${item.quantity} x Rs.${parseFloat(item.price).toFixed(2)} = Rs.${parseFloat(item.sub_total).toFixed(2)}`
+    ).join('\n');
+
+    const activeDiscounts = (bill.discounts || []).filter((d: any) => (parseFloat(d) || 0) > 0);
+    let discountLines = '';
+    if (activeDiscounts.length > 0) {
+      let running = parseFloat(bill.total_amount || 0);
+      discountLines = activeDiscounts.map((d: any, i: number) => {
+        const pct = parseFloat(d) || 0;
+        const discAmt = running * (pct / 100);
+        running -= discAmt;
+        const label = activeDiscounts.length > 1 ? `Discount ${i + 1} (${pct}%)` : `Discount (${pct}%)`;
+        return `  ${label}: -Rs.${discAmt.toFixed(2)}`;
+      }).join('\n');
+    }
+
+    const paymentLines = (bill.payments || []).map((p: any) =>
+      `  - Rs.${parseFloat(p.amount).toFixed(2)} via ${p.mode.toUpperCase()} on ${formatIST(p.paid_at)}${p.note ? ` (${p.note})` : ''}`
+    ).join('\n');
+
+    const netAmount = parseFloat(bill.net_amount || 0).toFixed(2);
+    const totalPaid = parseFloat(bill.total_paid || 0).toFixed(2);
+    const outstanding = parseFloat(bill.outstanding || 0).toFixed(2);
+
+    return [
+      `*Bill #${bill.id} - ${cfg.label}*`,
+      `--------------------`,
+      `*Party:* ${party}`,
+      `*Date:* ${date}`,
+      bill.note ? `*Note:* ${bill.note}` : null,
+      ``,
+      `*Items:*`,
+      itemLines || '  (none)',
+      ``,
+      `*Gross Total:* Rs.${parseFloat(bill.total_amount || 0).toFixed(2)}`,
+      discountLines ? discountLines : null,
+      `*Net Amount:* Rs.${netAmount}`,
+      bill.total_returned > 0 ? `*Returns Applied:* -Rs.${parseFloat(bill.total_returned).toFixed(2)}` : null,
+      bill.total_returned > 0 ? `*Adjusted Bill Amount:* Rs.${parseFloat(bill.adjusted_net_amount || 0).toFixed(2)}` : null,
+      ``,
+      paymentLines ? `*Payments:*\n${paymentLines}` : `*Payments:* None`,
+      ``,
+      `*Total Paid:* Rs.${totalPaid}`,
+      parseFloat(outstanding) > 0.01 ? `*Outstanding:* Rs.${outstanding}` : `*Fully Paid*`,
+    ].filter(line => line !== null).join('\n');
+  };
+
+  const openWhatsApp = async (message: string) => {
+    try {
+      const encoded = encodeURIComponent(message);
+      const whatsappUrl = `whatsapp://send?text=${encoded}`;
+      const supported = await Linking.canOpenURL(whatsappUrl);
+      if (supported) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Linking.openURL(`https://wa.me/?text=${encoded}`);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not open WhatsApp. Please make sure it is installed.');
+    }
+  };
+
+  // Called from the Bill Detail modal
+  const handleWhatsAppShare = async () => {
+    if (!selectedBill) return;
+    await openWhatsApp(buildWhatsAppMessage(selectedBill));
+  };
+
+  // Called from the bill card in the list — fetches full details first
+  const handleCardWhatsAppShare = async (item: any) => {
+    try {
+      setWhatsappSharingBillId(item.id);
+      const res = await BillService.getBillById(item.id);
+      await openWhatsApp(buildWhatsAppMessage(res.data));
+    } catch {
+      Alert.alert('Error', 'Could not load bill details for sharing.');
+    } finally {
+      setWhatsappSharingBillId(null);
+    }
+  };
+
   const handleExport = async () => {
     try {
       setExporting(true);
@@ -683,7 +774,21 @@ const HistoryScreen = () => {
                   <Clock size={12} color={theme.colors.textSecondary} />
                   <Text style={styles.billDate}>{formatIST(item.bill_date)}</Text>
                 </View>
-                <Text style={styles.billIdText}>#{item.id}</Text>
+                <View style={styles.billCardBottomRight}>
+                  <Text style={styles.billIdText}>#{item.id}</Text>
+                  <TouchableOpacity
+                    style={styles.cardWhatsappBtn}
+                    onPress={(e) => { handleCardWhatsAppShare(item); }}
+                    activeOpacity={0.75}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    {whatsappSharingBillId === item.id ? (
+                      <ActivityIndicator size={12} color='#fff' />
+                    ) : (
+                      <FontAwesome name='whatsapp' size={18} color='#fff' />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -923,6 +1028,18 @@ const HistoryScreen = () => {
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* WhatsApp Share Button */}
+                <TouchableOpacity
+                  style={styles.whatsappBtn}
+                  onPress={handleWhatsAppShare}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.whatsappBtnInner}>
+                    <FontAwesome name='whatsapp' size={22} color='#fff' />
+                    <Text style={styles.whatsappBtnText}>Send on WhatsApp</Text>
+                  </View>
+                </TouchableOpacity>
               </ScrollView>
             </>
           )}
@@ -930,8 +1047,8 @@ const HistoryScreen = () => {
       </Modal>
 
       {/* ─── Payment Form Modal ─── */}
-      <Modal visible={showPaymentModal} animationType="slide" transparent onRequestClose={() => setShowPaymentModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <Modal visible={showPaymentModal} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setShowPaymentModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.payModalOverlay}>
             <View style={[styles.payModalCard, { paddingBottom: Math.max(insets.bottom, 16) + 20 }]}>
               <View style={styles.payModalHeader}>
@@ -1146,7 +1263,7 @@ const HistoryScreen = () => {
       >
         <SafeAreaView style={styles.detailContainer}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
             {/* Edit Header */}
@@ -1755,6 +1872,53 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: theme.colors.primary,
+  },
+
+  // WhatsApp Button
+  whatsappBtn: {
+    marginTop: 10,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: '#25D366',
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  whatsappBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+  },
+  whatsappBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  // Bill card WhatsApp button
+  billCardBottomRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardWhatsappBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    backgroundColor: '#25D366',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   // Edit Bill Modal

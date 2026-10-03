@@ -8,6 +8,38 @@ const api = axios.create({
 });
 
 // ---------------------------------------------------------------------------
+// Company ID injection
+// Screens never need to pass company_id manually — the interceptors below
+// automatically attach it to every outgoing request.
+// ---------------------------------------------------------------------------
+let _companyId: string | null = null;
+
+export function setApiCompanyId(id: string | null) {
+  _companyId = id;
+}
+
+// REQUEST interceptor — inject company_id
+api.interceptors.request.use((config) => {
+  if (!_companyId) return config;
+
+  const method = (config.method ?? 'get').toLowerCase();
+
+  if (method === 'get' || method === 'delete') {
+    // Append as a query param
+    config.params = { ...config.params, company_id: _companyId };
+  } else {
+    // Merge into JSON body for POST / PUT / PATCH
+    if (config.data && typeof config.data === 'object') {
+      config.data = { ...config.data, company_id: _companyId };
+    } else if (!config.data) {
+      config.data = { company_id: _companyId };
+    }
+  }
+
+  return config;
+});
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 export interface BillItem {
@@ -25,6 +57,11 @@ export interface CreateBillPayload {
   original_bill_id?: number;
   bill_date?: string;
   note?: string;
+  is_gst_bill?: boolean;
+  cgst_percent?: number;
+  sgst_percent?: number;
+  invoice_number?: string;
+  freight_charges?: number;
 }
 
 export interface UpdateBillPayload {
@@ -101,7 +138,7 @@ export const ProductService = {
 };
 
 // ---------------------------------------------------------------------------
-// Party Service (replaces EntityService)
+// Party Service
 // ---------------------------------------------------------------------------
 export const PartyService = {
   getParties: () => api.get('/parties'),

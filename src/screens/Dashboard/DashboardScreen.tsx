@@ -3,12 +3,19 @@ import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Dimens
 import { Text } from '../../components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Package, ArrowUpRight, ArrowDownLeft, AlertCircle, RotateCw } from 'lucide-react-native';
+import { Package, ArrowUpRight, ArrowDownLeft, AlertCircle, RotateCw, ArrowLeft } from 'lucide-react-native';
 import { DashboardService } from '../../services/api';
 import LineChart from 'react-native-chart-kit/dist/line-chart';
 import PieChart from 'react-native-chart-kit/dist/PieChart';
 import { useLanguage } from '../../context/LanguageContext';
+import { useCompany } from '../../context/CompanyContext';
 import { getFormattedDate, toGujaratiNumerals } from '../../i18n/translations';
+
+const COMPANY_LABELS: Record<string, string> = {
+  acp: 'ACP',
+  handles: 'Handles',
+  interior: 'Shop',
+};
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -30,6 +37,7 @@ const StatCard = ({ title, value, icon: Icon, color, isCurrency, lang }: any) =>
 
 const DashboardScreen = () => {
   const { language, t, setLanguage } = useLanguage();
+  const { company, setCompany } = useCompany();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     totalStock: 0,
@@ -109,11 +117,25 @@ const DashboardScreen = () => {
           <RefreshControl refreshing={loading} onRefresh={fetchData} colors={[theme.colors.primary]} />
         }
       >
-        {/* Header with refresh button and language toggle */}
+        {/* Header with back button, refresh button and language toggle */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{t.overview}</Text>
-            <Text style={styles.date}>{getFormattedDate(language)}</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setCompany(null)}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to company selection"
+            >
+              <ArrowLeft size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                {company ? (COMPANY_LABELS[company] || company) : ''}
+              </Text>
+              <Text style={styles.date} numberOfLines={1}>
+                {getFormattedDate(language)}
+              </Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -253,8 +275,33 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: theme.spacing.xl,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  headerTitleWrap: {
+    flex: 1,
   },
   greeting: {
     ...theme.typography.h1,

@@ -235,10 +235,11 @@ const ManagementScreen = () => {
         visible={showAddModal}
         animationType="slide"
         transparent
+        statusBarTranslucent
         onRequestClose={handleCloseModal}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalBackdrop}
         >
           <TouchableOpacity
@@ -275,6 +276,8 @@ const ManagementScreen = () => {
                 value={newName}
                 onChangeText={setNewName}
                 placeholderTextColor={theme.colors.textSecondary}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
               />
             </View>
 

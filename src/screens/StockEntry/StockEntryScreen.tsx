@@ -16,6 +16,7 @@ import {
 import { BillService, ProductService, PartyService, CategoryService, BillFilters } from '../../services/api';
 import Toast from 'react-native-toast-message';
 import { useLanguage } from '../../context/LanguageContext';
+import { useCompany } from '../../context/CompanyContext';
 
 type BillType = 'purchase' | 'sell' | 'purchase_return' | 'sell_return';
 
@@ -40,7 +41,11 @@ const uid = () => Math.random().toString(36).slice(2);
 
 const StockEntryScreen = () => {
   const { t } = useLanguage();
+  const { company } = useCompany();
   const insets = useSafeAreaInsets();
+
+  // Companies that show invoice number & freight charges
+  const showInvoiceFreight = company === 'acp' || company === 'handles';
 
   // ── Core state ──────────────────────────────────────────
   const [type, setType] = useState<BillType>('purchase');
@@ -78,6 +83,15 @@ const StockEntryScreen = () => {
   // ── Discounts ───────────────────────────────────────────
   const [discounts, setDiscounts] = useState<string[]>(['']);
 
+  // ── GST ─────────────────────────────────────────────────
+  const [isGstBill, setIsGstBill] = useState(false);
+  const [cgstPct, setCgstPct] = useState('');
+  const [sgstPct, setSgstPct] = useState('');
+
+  // ── Invoice & Freight (ACP / Handles only) ───────────────
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [freightCharges, setFreightCharges] = useState('');
+
   // ── Optional fields ─────────────────────────────────────
   const [note, setNote] = useState('');
   const [payMode, setPayMode] = useState<'cash' | 'online' | null>(null);
@@ -95,6 +109,11 @@ const StockEntryScreen = () => {
     setOriginalBill(null);
     setItems([{ id: uid(), product: null, quantity: '', price: '' }]);
     setDiscounts(['']);
+    setIsGstBill(false);
+    setCgstPct('');
+    setSgstPct('');
+    setInvoiceNumber('');
+    setFreightCharges('');
     setNote('');
     setPayMode(null);
     setPayAmount('');
@@ -391,10 +410,14 @@ const StockEntryScreen = () => {
     return q * p;
   });
   const totalAmount = itemSubtotals.reduce((a, b) => a + b, 0);
-  const netAmount = discounts.reduce((acc, d) => {
+  const netAmountAfterDiscount = discounts.reduce((acc, d) => {
     const pct = parseFloat(d) || 0;
     return acc * (1 - pct / 100);
   }, totalAmount);
+  const cgstAmount = isGstBill ? netAmountAfterDiscount * ((parseFloat(cgstPct) || 0) / 100) : 0;
+  const sgstAmount = isGstBill ? netAmountAfterDiscount * ((parseFloat(sgstPct) || 0) / 100) : 0;
+  const freightAmount = showInvoiceFreight ? (parseFloat(freightCharges) || 0) : 0;
+  const netAmount = netAmountAfterDiscount + cgstAmount + sgstAmount + freightAmount;
 
   // ── Helpers ──────────────────────────────────────────────
   const isReturn = type === 'purchase_return' || type === 'sell_return';
@@ -473,6 +496,20 @@ const StockEntryScreen = () => {
       }
     }
 
+    // GST validation
+    if (isGstBill) {
+      const cgst = parseFloat(cgstPct) || 0;
+      const sgst = parseFloat(sgstPct) || 0;
+      if (cgst < 0 || cgst > 100) {
+        Toast.show({ type: 'error', text1: 'Validation', text2: 'CGST % must be between 0 and 100' });
+        return;
+      }
+      if (sgst < 0 || sgst > 100) {
+        Toast.show({ type: 'error', text1: 'Validation', text2: 'SGST % must be between 0 and 100' });
+        return;
+      }
+    }
+
     const payAmt = parseFloat(payAmount) || 0;
     if (payMode && payAmt > netAmount + 0.001) {
       Toast.show({ type: 'error', text1: 'Validation', text2: `Payment exceeds net amount ₹${netAmount.toFixed(2)}` });
@@ -493,6 +530,11 @@ const StockEntryScreen = () => {
         discounts: discounts
           .map(d => parseFloat(d) || 0)
           .filter(d => d > 0),
+        is_gst_bill: isGstBill || undefined,
+        cgst_percent: isGstBill ? (parseFloat(cgstPct) || 0) : undefined,
+        sgst_percent: isGstBill ? (parseFloat(sgstPct) || 0) : undefined,
+        invoice_number: showInvoiceFreight && invoiceNumber.trim() ? invoiceNumber.trim() : undefined,
+        freight_charges: showInvoiceFreight && freightAmount > 0 ? freightAmount : undefined,
         note: note.trim() || undefined,
       });
 
@@ -779,6 +821,108 @@ const StockEntryScreen = () => {
           </View>
         ))}
 
+        {/* ── GST Bill ── */}
+        <View style={styles.gstSection}>
+          <TouchableOpacity
+            style={styles.gstCheckboxRow}
+            onPress={() => {
+              setIsGstBill(prev => !prev);
+              if (isGstBill) { setCgstPct(''); setSgstPct(''); }
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, isGstBill && styles.checkboxChecked]}>
+              {isGstBill && (
+                <Text style={styles.checkboxTick}>✓</Text>
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.gstCheckboxLabel}>GST Bill</Text>
+              <Text style={styles.gstCheckboxSub}>Enable to apply CGST & SGST on this bill</Text>
+            </View>
+            {isGstBill && (
+              <View style={styles.gstActiveBadge}>
+                <Text style={styles.gstActiveBadgeText}>Active</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {isGstBill && (
+            <View style={[styles.row, { marginTop: 4, paddingHorizontal: 14, paddingBottom: 14 }]}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>CGST %</Text>
+                <View style={styles.gstInputWrap}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    value={cgstPct}
+                    onChangeText={setCgstPct}
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                  <Percent size={16} color={theme.colors.textSecondary} style={{ marginLeft: 8 }} />
+                </View>
+                {cgstPct !== '' && cgstAmount > 0 && (
+                  <Text style={styles.gstAmountHint}>+ ₹{cgstAmount.toFixed(2)}</Text>
+                )}
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>SGST %</Text>
+                <View style={styles.gstInputWrap}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    value={sgstPct}
+                    onChangeText={setSgstPct}
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                  <Percent size={16} color={theme.colors.textSecondary} style={{ marginLeft: 8 }} />
+                </View>
+                {sgstPct !== '' && sgstAmount > 0 && (
+                  <Text style={styles.gstAmountHint}>+ ₹{sgstAmount.toFixed(2)}</Text>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* ── Invoice & Freight (ACP / Handles) ── */}
+        {showInvoiceFreight && (
+          <View style={styles.invoiceFreightSection}>
+            <View style={styles.invoiceFreightHeader}>
+              <Text style={styles.sectionTitle}>Invoice & Freight</Text>
+              <View style={styles.optionalBadge}>
+                <Text style={styles.optionalBadgeText}>Optional</Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1.4 }]}>
+                <Text style={styles.label}>Invoice No.</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. INV-2024-001"
+                  value={invoiceNumber}
+                  onChangeText={setInvoiceNumber}
+                  placeholderTextColor={theme.colors.textSecondary}
+                  autoCapitalize="characters"
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Freight (₹)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  value={freightCharges}
+                  onChangeText={setFreightCharges}
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Discounts ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t.discountPercent}</Text>
@@ -886,6 +1030,28 @@ const StockEntryScreen = () => {
               <Text style={styles.summaryValue}>- ₹{step.amount.toFixed(2)}</Text>
             </View>
           ))}
+          {showInvoiceFreight && freightAmount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Freight Charges</Text>
+              <Text style={[styles.summaryValue, { color: '#6366F1' }]}>+ ₹{freightAmount.toFixed(2)}</Text>
+            </View>
+          )}
+          {isGstBill && (cgstAmount > 0 || sgstAmount > 0) && (
+            <>
+              {cgstAmount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>CGST ({parseFloat(cgstPct) || 0}%)</Text>
+                  <Text style={[styles.summaryValue, { color: '#F59E0B' }]}>+ ₹{cgstAmount.toFixed(2)}</Text>
+                </View>
+              )}
+              {sgstAmount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>SGST ({parseFloat(sgstPct) || 0}%)</Text>
+                  <Text style={[styles.summaryValue, { color: '#F59E0B' }]}>+ ₹{sgstAmount.toFixed(2)}</Text>
+                </View>
+              )}
+            </>
+          )}
           <View style={[styles.summaryRow, styles.summaryTotal]}>
             <Text style={[styles.summaryTotalLabel, { color: '#000000' }]}>{t.netAmount}</Text>
             <Text style={[styles.summaryTotalValue, { color: '#000000' }]}>
@@ -1186,10 +1352,11 @@ const StockEntryScreen = () => {
         visible={showCreateProductModal}
         animationType="slide"
         transparent
+        statusBarTranslucent
         onRequestClose={() => setShowCreateProductModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.quickCreateOverlay}
         >
           <TouchableOpacity
@@ -1308,10 +1475,11 @@ const StockEntryScreen = () => {
         visible={showCreatePartyModal}
         animationType="slide"
         transparent
+        statusBarTranslucent
         onRequestClose={() => setShowCreatePartyModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.quickCreateOverlay}
         >
           <TouchableOpacity
@@ -1689,6 +1857,95 @@ const styles = StyleSheet.create({
   summaryTotal: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryTotalLabel: { ...theme.typography.body, fontWeight: '700', color: '#000000', flex: 1 },
   summaryTotalValue: { ...theme.typography.h2, fontWeight: '800', color: '#000000', textAlign: 'right' },
+
+  // GST
+  gstSection: {
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  gstCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  checkboxTick: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+  gstCheckboxLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  gstCheckboxSub: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  gstActiveBadge: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  gstActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  gstInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gstAmountHint: {
+    ...theme.typography.caption,
+    color: '#F59E0B',
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+
+  // Invoice & Freight
+  invoiceFreightSection: {
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 14,
+  },
+  invoiceFreightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
 
   // Submit
   submitBtn: {
