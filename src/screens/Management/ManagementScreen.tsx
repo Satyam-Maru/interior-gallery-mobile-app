@@ -12,8 +12,10 @@ import {
 import { Text, TextInput } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
-import { Users, Plus, Search, X, Layers, Edit2, RotateCw } from 'lucide-react-native';
+import { Users, Plus, Search, X, Layers, Edit2, RotateCw, BookOpen } from 'lucide-react-native';
 import { PartyService, CategoryService } from '../../services/api';
+import PartyLedgerModal from './PartyLedgerModal';
+import AllPartiesLedgerModal from './AllPartiesLedgerModal';
 import Toast from 'react-native-toast-message';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -27,6 +29,11 @@ const ManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Ledger state
+  const [ledgerParty, setLedgerParty] = useState<{ id: number; name: string } | null>(null);
+  const [showLedger, setShowLedger] = useState(false);
+  const [showAllLedger, setShowAllLedger] = useState(false);
 
   // Form State
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -150,6 +157,17 @@ const ManagementScreen = () => {
         </View>
       </View>
       <View style={styles.actions}>
+        {activeTab === 'party' && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              setLedgerParty({ id: item.id, name: item.name });
+              setShowLedger(true);
+            }}
+          >
+            <BookOpen size={18} color={theme.colors.accent} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.actionButton} onPress={() => handleEditItem(item)}>
           <Edit2 size={18} color={theme.colors.textSecondary} />
         </TouchableOpacity>
@@ -160,10 +178,20 @@ const ManagementScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t.management}</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchData} activeOpacity={0.7}>
-          <RotateCw size={18} color={theme.colors.primary} />
-        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{t.management}</Text>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.allLedgerHeaderBtn}
+            onPress={() => setShowAllLedger(true)}
+            activeOpacity={0.7}
+          >
+            <BookOpen size={15} color="#FFF" />
+            <Text style={styles.allLedgerHeaderBtnText}>All Ledgers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.refreshButton} onPress={fetchData} activeOpacity={0.7}>
+            <RotateCw size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabContainer}>
@@ -302,6 +330,19 @@ const ManagementScreen = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Party Ledger Modal */}
+      <PartyLedgerModal
+        visible={showLedger}
+        party={ledgerParty}
+        onClose={() => setShowLedger(false)}
+      />
+
+      {/* All Parties Ledger Modal */}
+      <AllPartiesLedgerModal
+        visible={showAllLedger}
+        onClose={() => setShowAllLedger(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -315,16 +356,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.sm,
+    gap: 10,
   },
   title: {
-    ...theme.typography.h1,
+    fontSize: 22,
+    fontWeight: '700',
+    color: theme.colors.text,
+    flex: 1,
+    flexShrink: 1,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  allLedgerHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.sm,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  allLedgerHeaderBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   refreshButton: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
