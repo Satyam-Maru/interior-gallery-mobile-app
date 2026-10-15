@@ -91,6 +91,15 @@ export interface BillFilters {
   endDate?: string;
 }
 
+export interface CreatePartyTransactionPayload {
+  party_id: number;
+  type: 'payment' | 'discount';
+  amount: number;
+  payment_mode?: 'cash' | 'upi' | 'cheque' | 'bank_transfer' | string;
+  transaction_date?: string;
+  note?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Bill Service
 // ---------------------------------------------------------------------------
@@ -112,6 +121,12 @@ export const BillService = {
 
   getOutstanding: (partyId: number) =>
     api.get(`/bills/outstanding/${partyId}`),
+
+  getPartyTransactions: (params: { party_id: number; endDate?: string }) =>
+    api.get('/bills/party-transactions', { params }),
+
+  createPartyTransaction: (data: CreatePartyTransactionPayload) =>
+    api.post('/bills/party-transactions', data),
 };
 
 // ---------------------------------------------------------------------------

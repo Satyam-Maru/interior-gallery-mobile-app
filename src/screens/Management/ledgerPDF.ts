@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LOGO_BASE64 } from '../../constants/logoBase64';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,6 +11,7 @@ interface LedgerEntry {
   id: number;
   bill_date: string;
   type: string;
+  payment_mode?: string | null;
   net_amount?: number;
   note?: string | null;
   debit: number;
@@ -59,6 +61,8 @@ function vchType(type: string): string {
     case 'sell_return':     return 'Credit Note';
     case 'purchase':        return 'Purchase';
     case 'purchase_return': return 'Debit Note';
+    case 'payment':         return 'Payment';
+    case 'discount':        return 'Discount';
     default:                return type;
   }
 }
@@ -68,9 +72,27 @@ function vchType(type: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function particulars(entry: LedgerEntry): string {
+  if (entry.type === 'payment') {
+    const mode = entry.payment_mode?.toLowerCase().trim();
+    let modeText = 'By cash';
+    if (mode === 'upi') {
+      modeText = 'By UPI';
+    } else if (mode === 'cheque') {
+      modeText = 'By Cheque';
+    } else if (mode === 'bank_transfer' || mode === 'bank transfer') {
+      modeText = 'By Bank Transfer';
+    } else if (entry.label && entry.label !== 'Payment' && entry.label !== 'Payment Received') {
+      modeText = entry.label.startsWith('By ') ? entry.label : `By ${entry.label}`;
+    }
+    return `${modeText}${entry.note ? ` (${entry.note})` : ''}`;
+  }
+  if (entry.type === 'discount') {
+    return `By discount${entry.note ? ` (${entry.note})` : ''}`;
+  }
   // Debit side starts with "To", Credit side starts with "By"
   const prefix = entry.debit > 0 ? 'To' : 'By';
-  return `${prefix} ${entry.label}${entry.note ? ` (${entry.note})` : ''}`;
+  const cleanLabel = entry.label.replace(/^(To|By)\s+/i, '');
+  return `${prefix} ${cleanLabel}${entry.note ? ` (${entry.note})` : ''}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +115,7 @@ function buildHTML(opts: LedgerPDFOptions): string {
   const netLabel = netBalance >= 0 ? 'Dr' : 'Cr';
   const netAmt = Math.abs(netBalance);
 
-  const grandTotalVal = grandCredit - grandDebit;
+  const grandTotalVal = grandDebit - grandCredit;
   const isNeg = grandTotalVal < 0;
   const grandTotalStr = `${isNeg ? '-' : ''}₹${Math.abs(grandTotalVal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -117,7 +139,7 @@ function buildHTML(opts: LedgerPDFOptions): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${partyName} — Ledger</title>
+  <title>${partyName} - ${fmtDateRange(startDate, endDate)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -308,7 +330,7 @@ function buildHTML(opts: LedgerPDFOptions): string {
       <!-- Grand Total -->
       <tr class="row-total">
         <td class="col-date"></td>
-        <td class="col-particulars" colspan="3" style="text-align:right; letter-spacing:0.5px; color:#000;">GRAND TOTAL (CREDIT - DEBIT):</td>
+        <td class="col-particulars" colspan="3" style="text-align:right; letter-spacing:0.5px; color:#000;">GRAND TOTAL (DEBIT - CREDIT):</td>
         <td class="col-amount" colspan="2" style="text-align:right; font-weight:bold; color:#000;">${grandTotalStr}</td>
       </tr>
     </tbody>
@@ -337,12 +359,29 @@ export async function exportLedgerPDF(opts: LedgerPDFOptions): Promise<void> {
     base64: false,
   });
 
+  const dateRangeStr = fmtDateRange(opts.startDate, opts.endDate);
+  const fileTitle = `${opts.partyName.trim()} - ${dateRangeStr}`;
+  const safeFileName = `${fileTitle.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+  const targetUri = `${FileSystem.cacheDirectory}${safeFileName}`;
+
+  let shareUri = uri;
+  try {
+    const existing = await FileSystem.getInfoAsync(targetUri);
+    if (existing.exists) {
+      await FileSystem.deleteAsync(targetUri, { idempotent: true });
+    }
+    await FileSystem.copyAsync({ from: uri, to: targetUri });
+    shareUri = targetUri;
+  } catch (e) {
+    console.warn('Could not copy PDF with custom name, using default uri:', e);
+  }
+
   // Share / save
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(shareUri, {
       mimeType: 'application/pdf',
-      dialogTitle: `${opts.partyName} — Ledger`,
+      dialogTitle: fileTitle,
       UTI: 'com.adobe.pdf',
     });
   } else {

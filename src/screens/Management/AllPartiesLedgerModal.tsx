@@ -97,19 +97,18 @@ function endOfDay(date: Date): Date {
   return d;
 }
 
-// Reversed mapping:
-// sell            -> Credit (Revenue earned)
-// sell_return     -> Debit
-// purchase        -> Debit (Cost incurred)
-// purchase_return -> Credit
+// sell            -> Debit (Party purchases from us)
+// sell_return     -> Credit
+// purchase        -> Credit (We purchase from party)
+// purchase_return -> Debit
 function classifyBill(bill: any): { debit: number; credit: number } {
   const amount = parseFloat(bill.net_amount ?? '0');
   switch (bill.type) {
-    case 'sell':            return { debit: 0,      credit: amount };
-    case 'sell_return':     return { debit: amount, credit: 0      };
-    case 'purchase':        return { debit: amount, credit: 0      };
-    case 'purchase_return': return { debit: 0,      credit: amount };
-    default:                return { debit: 0,      credit: amount };
+    case 'sell':            return { debit: amount, credit: 0      };
+    case 'sell_return':     return { debit: 0,      credit: amount };
+    case 'purchase':        return { debit: 0,      credit: amount };
+    case 'purchase_return': return { debit: amount, credit: 0      };
+    default:                return { debit: amount, credit: 0      };
   }
 }
 

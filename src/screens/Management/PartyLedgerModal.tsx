@@ -7,6 +7,9 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Animated,
 } from 'react-native';
 import { Text } from '../../components';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +24,9 @@ import {
   ChevronRight,
   Scale,
   FileDown,
+  Plus,
+  CreditCard,
+  Tag,
 } from 'lucide-react-native';
 import { BillService } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
@@ -42,12 +48,14 @@ interface Party {
 interface LedgerEntry {
   id: number;
   bill_date: string;
-  type: 'sell' | 'purchase' | 'sell_return' | 'purchase_return';
+  type: 'sell' | 'purchase' | 'sell_return' | 'purchase_return' | 'payment' | 'discount';
+  payment_mode?: string | null;
   net_amount?: number;
   note?: string | null;
   debit: number;
   credit: number;
   label: string;
+  isTransaction?: boolean;
 }
 
 interface MonthGroup {
@@ -109,18 +117,18 @@ function endOfDay(date: Date): Date {
   return d;
 }
 
-// sell            -> Credit
-// sell_return     -> Debit
-// purchase        -> Debit
-// purchase_return -> Credit
+// sell            -> Debit (Party purchases from us)
+// sell_return     -> Credit
+// purchase        -> Credit (We purchase from party)
+// purchase_return -> Debit
 function classifyBill(bill: any): { debit: number; credit: number; label: string } {
   const amount = parseFloat(bill.net_amount ?? '0');
   switch (bill.type) {
-    case 'sell':            return { debit: 0,      credit: amount, label: 'Sales'            };
-    case 'sell_return':     return { debit: amount, credit: 0,      label: 'Sales Return'      };
-    case 'purchase':        return { debit: amount, credit: 0,      label: 'Purchase'          };
-    case 'purchase_return': return { debit: 0,      credit: amount, label: 'Purchase Return'   };
-    default:                return { debit: 0,      credit: amount, label: bill.type           };
+    case 'sell':            return { debit: amount, credit: 0,      label: 'Sales'            };
+    case 'sell_return':     return { debit: 0,      credit: amount, label: 'Sales Return'      };
+    case 'purchase':        return { debit: 0,      credit: amount, label: 'Purchase'          };
+    case 'purchase_return': return { debit: amount, credit: 0,      label: 'Purchase Return'   };
+    default:                return { debit: amount, credit: 0,      label: bill.type           };
   }
 }
 
@@ -153,19 +161,37 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [bills, setBills] = useState<any[]>([]);
+  const [partyTxns, setPartyTxns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+
+  // ── Add Transaction Sheet ────────────────────────────────────────────────
+  const [showAddTxn, setShowAddTxn] = useState(false);
+  const [txnType, setTxnType] = useState<'payment' | 'discount'>('payment');
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi' | 'cheque' | 'bank_transfer'>('cash');
+  const [txnAmount, setTxnAmount] = useState('');
+  const [txnNote, setTxnNote] = useState('');
+  const [txnDate, setTxnDate] = useState<Date>(new Date());
+  const [showTxnDatePicker, setShowTxnDatePicker] = useState(false);
+  const [savingTxn, setSavingTxn] = useState(false);
 
   const fetchLedger = useCallback(async () => {
     if (!party) return;
     try {
       setLoading(true);
-      const res = await BillService.getBills({
-        party_id: party.id,
-        endDate: endOfDay(endDate).toISOString(),
-      });
-      setBills(res.data ?? []);
+      const [billsRes, txnsRes] = await Promise.all([
+        BillService.getBills({
+          party_id: party.id,
+          endDate: endOfDay(endDate).toISOString(),
+        }),
+        BillService.getPartyTransactions({
+          party_id: party.id,
+          endDate: endOfDay(endDate).toISOString(),
+        }),
+      ]);
+      setBills(billsRes.data ?? []);
+      setPartyTxns(txnsRes.data ?? []);
     } catch (e) {
       console.error('Ledger fetch error:', e);
       Toast.show({ type: 'error', text1: 'Failed to load ledger' });
@@ -206,24 +232,61 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
       }
     }
 
+    // Merge party transactions into pre-range and in-range buckets
+    const inRangeTxns: any[] = [];
+    for (const t of partyTxns) {
+      const tTime = new Date(t.transaction_date).getTime();
+      if (tTime < startBoundary) {
+        // All transactions are credits (reduce outstanding)
+        preCredit += parseFloat(t.amount ?? '0');
+      } else if (tTime <= endBoundary) {
+        inRangeTxns.push(t);
+      }
+    }
+
     // Net opening amount prior to startDate (including all earlier dates)
     const preNet = preDebit - preCredit;
     const openingDebit = preNet > 0 ? preNet : 0;
     const openingCredit = preNet < 0 ? Math.abs(preNet) : 0;
 
-    const entries: LedgerEntry[] = inRangeBills.map((bill) => {
-      const { debit, credit, label } = classifyBill(bill);
-      return {
-        id: bill.id,
-        bill_date: bill.bill_date,
-        type: bill.type,
-        net_amount: bill.net_amount,
-        note: bill.note,
-        debit,
-        credit,
-        label,
-      };
-    });
+    const entries: LedgerEntry[] = [
+      ...inRangeBills.map((bill) => {
+        const { debit, credit, label } = classifyBill(bill);
+        return {
+          id: bill.id,
+          bill_date: bill.bill_date,
+          type: bill.type as LedgerEntry['type'],
+          net_amount: bill.net_amount,
+          note: bill.note,
+          debit,
+          credit,
+          label,
+          isTransaction: false,
+        };
+      }),
+      ...inRangeTxns.map((t) => {
+        let label = 'By discount';
+        if (t.type === 'payment') {
+          const mode = t.payment_mode?.toLowerCase()?.trim();
+          if (mode === 'upi') label = 'By UPI';
+          else if (mode === 'cheque') label = 'By Cheque';
+          else if (mode === 'bank_transfer' || mode === 'bank transfer') label = 'By Bank Transfer';
+          else label = 'By cash';
+        }
+        return {
+          id: t.id, // DB row id from party_transactions table
+          bill_date: t.transaction_date,
+          type: t.type as LedgerEntry['type'],
+          payment_mode: t.payment_mode,
+          net_amount: t.amount,
+          note: t.note,
+          debit: 0,
+          credit: parseFloat(t.amount ?? '0'),
+          label,
+          isTransaction: true,
+        };
+      }),
+    ];
 
     entries.sort((a, b) => new Date(a.bill_date).getTime() - new Date(b.bill_date).getTime());
 
@@ -266,7 +329,7 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
       grandCredit,
       allEntries,
     };
-  }, [bills, startDate, endDate]);
+  }, [bills, partyTxns, startDate, endDate]);
 
   const netBalance = grandDebit - grandCredit;
 
@@ -306,6 +369,39 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
     });
   };
 
+  // ── Save Transaction ────────────────────────────────────────────────────
+  const handleSaveTxn = async () => {
+    const amt = parseFloat(txnAmount);
+    if (!party || isNaN(amt) || amt <= 0) {
+      Toast.show({ type: 'error', text1: 'Enter a valid amount' });
+      return;
+    }
+    try {
+      setSavingTxn(true);
+      await BillService.createPartyTransaction({
+        party_id: party.id,
+        type: txnType,
+        amount: amt,
+        payment_mode: txnType === 'payment' ? paymentMode : undefined,
+        transaction_date: txnDate.toISOString(),
+        note: txnNote.trim() || undefined,
+      });
+      Toast.show({ type: 'success', text1: txnType === 'payment' ? 'Payment recorded' : 'Discount recorded' });
+      setShowAddTxn(false);
+      setTxnAmount('');
+      setTxnNote('');
+      setTxnDate(new Date());
+      setTxnType('payment');
+      setPaymentMode('cash');
+      fetchLedger();
+    } catch (e: any) {
+      console.error('Save txn error:', e);
+      Toast.show({ type: 'error', text1: 'Failed to save', text2: e?.message });
+    } finally {
+      setSavingTxn(false);
+    }
+  };
+
   const onChangeStart = (_: any, selected?: Date) => {
     setShowStartPicker(false);
     if (selected) setStartDate(startOfDay(selected));
@@ -316,12 +412,19 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
   };
 
   const renderEntry = (entry: LedgerEntry) => (
-    <View key={entry.id} style={styles.entryRow}>
+    <View key={`${entry.isTransaction ? 'txn' : 'bill'}-${entry.id}`} style={[styles.entryRow, entry.isTransaction && styles.entryRowTxn]}>
       <View style={styles.entryLeft}>
-        <View style={[styles.entryDot, entry.debit > 0 ? styles.dotDebit : styles.dotCredit]} />
+        <View style={[styles.entryDot, entry.isTransaction ? styles.dotTxn : (entry.debit > 0 ? styles.dotDebit : styles.dotCredit)]} />
         <View style={styles.entryInfo}>
-          <Text style={styles.entryLabel}>{entry.label}</Text>
-          <Text style={styles.entryDate}>{formatDateDisplay(entry.bill_date)}</Text>
+          <View style={styles.entryLabelRow}>
+            <Text style={[styles.entryLabel, entry.isTransaction && styles.entryLabelTxn]}>{entry.label}</Text>
+            {entry.isTransaction && (
+              <View style={styles.txnBadge}>
+                <Text style={styles.txnBadgeText}>{entry.type === 'payment' ? 'PMT' : 'DISC'}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.entryDate}>{`${formatDateDisplay(entry.bill_date)} · Vch #${entry.id}`}</Text>
           {entry.note ? <Text style={styles.entryNote} numberOfLines={1}>{entry.note}</Text> : null}
         </View>
       </View>
@@ -487,14 +590,24 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
             {/* Grand Total */}
             <View style={styles.grandTotalCard}>
               <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Grand Total (Credit - Debit)</Text>
+                <Text style={styles.grandTotalLabel}>Grand Total (Debit - Credit)</Text>
                 <Text style={styles.grandTotalAmount}>
-                  {formatSignedCurrency(grandCredit - grandDebit)}
+                  {formatSignedCurrency(grandDebit - grandCredit)}
                 </Text>
               </View>
             </View>
           </ScrollView>
         )}
+
+        {/* FAB: Add Payment / Discount */}
+        <TouchableOpacity
+          style={[styles.fab, loading && { opacity: 0.4 }]}
+          onPress={() => setShowAddTxn(true)}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Plus size={22} color="#FFF" />
+        </TouchableOpacity>
 
         {/* Date Pickers */}
         {showStartPicker && (
@@ -516,6 +629,147 @@ const PartyLedgerModal: React.FC<Props> = ({ visible, party, onClose }) => {
             maximumDate={new Date()}
           />
         )}
+
+        {/* ── Add Transaction Bottom Sheet ───────────────────────────── */}
+        <Modal
+          visible={showAddTxn}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowAddTxn(false)}
+        >
+          <KeyboardAvoidingView
+            style={styles.sheetOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setShowAddTxn(false)} />
+            <View style={styles.sheetContainer}>
+              {/* Sheet Handle */}
+              <View style={styles.sheetHandle} />
+
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Record Payment / Discount</Text>
+                <TouchableOpacity onPress={() => setShowAddTxn(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Type Selector */}
+              <View style={styles.typeRow}>
+                <TouchableOpacity
+                  style={[styles.typeBtn, txnType === 'payment' && styles.typeBtnActive]}
+                  onPress={() => setTxnType('payment')}
+                  activeOpacity={0.8}
+                >
+                  <CreditCard size={16} color={txnType === 'payment' ? '#FFF' : theme.colors.textSecondary} />
+                  <Text style={[styles.typeBtnText, txnType === 'payment' && styles.typeBtnTextActive]}>Payment</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.typeBtn, txnType === 'discount' && styles.typeBtnActive]}
+                  onPress={() => setTxnType('discount')}
+                  activeOpacity={0.8}
+                >
+                  <Tag size={16} color={txnType === 'discount' ? '#FFF' : theme.colors.textSecondary} />
+                  <Text style={[styles.typeBtnText, txnType === 'discount' && styles.typeBtnTextActive]}>Discount</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Payment Method Selector (when Payment is active) */}
+              {txnType === 'payment' && (
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>PAYMENT METHOD</Text>
+                  <View style={styles.modeRow}>
+                    {(
+                      [
+                        { key: 'cash', label: 'Cash' },
+                        { key: 'upi', label: 'UPI' },
+                        { key: 'cheque', label: 'Cheque' },
+                        { key: 'bank_transfer', label: 'Bank Transfer' },
+                      ] as const
+                    ).map((m) => {
+                      const isSelected = paymentMode === m.key;
+                      return (
+                        <TouchableOpacity
+                          key={m.key}
+                          style={[styles.modeChip, isSelected && styles.modeChipActive]}
+                          onPress={() => setPaymentMode(m.key)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.modeChipText, isSelected && styles.modeChipTextActive]}>
+                            {m.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Amount */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>AMOUNT (₹)</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={txnAmount}
+                  onChangeText={setTxnAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Date */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>DATE</Text>
+                <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowTxnDatePicker(true)}>
+                  <Calendar size={14} color={theme.colors.accent} />
+                  <Text style={styles.datePickerBtnText}>{formatDateDisplay(txnDate.toISOString())}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Note */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>NOTE (OPTIONAL)</Text>
+                <TextInput
+                  style={styles.noteInput}
+                  value={txnNote}
+                  onChangeText={setTxnNote}
+                  placeholder="Add a note..."
+                  placeholderTextColor={theme.colors.textSecondary}
+                  multiline
+                  numberOfLines={2}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Save Button */}
+              <TouchableOpacity
+                style={[styles.saveBtn, savingTxn && { opacity: 0.6 }]}
+                onPress={handleSaveTxn}
+                disabled={savingTxn}
+                activeOpacity={0.85}
+              >
+                {savingTxn
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Text style={styles.saveBtnText}>Save {txnType === 'payment' ? 'Payment' : 'Discount'}</Text>
+                }
+              </TouchableOpacity>
+
+              {showTxnDatePicker && (
+                <DateTimePicker
+                  value={txnDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_: any, d?: Date) => {
+                    setShowTxnDatePicker(false);
+                    if (d) setTxnDate(d);
+                  }}
+                  maximumDate={new Date()}
+                />
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -602,6 +856,62 @@ const styles = StyleSheet.create({
   loadingText:      { fontSize: 14, color: theme.colors.textSecondary, marginTop: 8 },
   emptyTitle:       { fontSize: 16, fontWeight: '700', color: theme.colors.text },
   emptySubtitle:    { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center' },
+
+  // ── Transaction entry variants ───────────────────────────────────────────
+  entryRowTxn:      { backgroundColor: '#F0FDF4' },
+  entryLabelRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  entryLabelTxn:    { color: '#16a34a' },
+  dotTxn:           { backgroundColor: '#16a34a' },
+  txnBadge:         { backgroundColor: '#dcfce7', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
+  txnBadgeText:     { fontSize: 9, fontWeight: '800', color: '#15803d', letterSpacing: 0.4 },
+
+  // ── FAB ─────────────────────────────────────────────────────────────────
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+
+  // ── Bottom Sheet ─────────────────────────────────────────────────────────
+  sheetOverlay:     { flex: 1, justifyContent: 'flex-end' },
+  sheetBackdrop:    { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheetContainer:   { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: theme.spacing.lg, paddingBottom: 36 },
+  sheetHandle:      { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0', alignSelf: 'center', marginBottom: 16 },
+  sheetHeader:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  sheetTitle:       { fontSize: 17, fontWeight: '700', color: theme.colors.text },
+
+  typeRow:          { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  typeBtn:          { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: theme.borderRadius.md, borderWidth: 1.5, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  typeBtnActive:    { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  typeBtnText:      { fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary },
+  typeBtnTextActive:{ color: '#FFF' },
+
+  fieldGroup:       { marginBottom: 16 },
+  fieldLabel:       { fontSize: 10, fontWeight: '700', color: theme.colors.textSecondary, letterSpacing: 0.8, marginBottom: 6 },
+  amountInput:      { fontSize: 22, fontWeight: '700', color: theme.colors.text, borderBottomWidth: 2, borderBottomColor: theme.colors.primary, paddingBottom: 8, paddingHorizontal: 2 },
+  datePickerBtn:    { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.sm, paddingHorizontal: 12, paddingVertical: 10 },
+  datePickerBtnText:{ fontSize: 14, color: theme.colors.text, fontWeight: '500' },
+  noteInput:        { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.sm, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: theme.colors.text, minHeight: 64, textAlignVertical: 'top' },
+
+  saveBtn:          { backgroundColor: theme.colors.primary, paddingVertical: 15, borderRadius: theme.borderRadius.md, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  saveBtnText:      { color: '#FFF', fontSize: 16, fontWeight: '700' },
+
+  modeRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeChip:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: theme.borderRadius.sm, backgroundColor: theme.colors.surface, borderWidth: 1.5, borderColor: theme.colors.border },
+  modeChipActive:   { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  modeChipText:     { fontSize: 13, fontWeight: '600', color: theme.colors.textSecondary },
+  modeChipTextActive:{ color: '#FFF' },
 });
 
 export default PartyLedgerModal;
